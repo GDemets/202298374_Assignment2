@@ -26,8 +26,8 @@ class Book(db.Model):
     category = db.Column(db.String(20), nullable=False)
     publisher = db.Column(db.String(50), nullable=False)
     summary = db.Column(db.String(200))
-    isbn = db.Column(db.String(12), unique=True, nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    isbn = db.Column(db.String(10), unique=True, nullable=False)
+    price = db.Column(db.Integer, nullable=False)
     publication_date = db.Column(db.String(10), nullable=False)
     posts = db.relationship('Post', backref='book', lazy=True)
 

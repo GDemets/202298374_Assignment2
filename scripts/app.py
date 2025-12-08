@@ -96,9 +96,9 @@ def get_posts_user(user_id):
     }), 200
 
 @app.route('/posts/<int:book_id>', methods=['GET'])
-def get_posts_user(user_id):
+def get_posts_book(book_id):
     """Get all posts for a user"""
-    posts = Post.query.get(user_id)
+    posts = Post.query.get(book_id)
     if not posts:
         return jsonify({
             'status': 'error',
