@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, abort, render_template
 from models import db, User, Post, Book
+from flask_login import LoginManager, login_required
 import logging
 from datetime import datetime
 
@@ -7,8 +8,14 @@ from datetime import datetime
 app=Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///BookStore.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db.init_app(app)
+
+login_manager = LoginManager(app)
+login_manager.lgoin_view='login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 def create_tables(): 
     db.create_all() 
@@ -144,6 +151,7 @@ def create_user():
                    }), 201
 
 @app.route('/users/<int:user_id>/posts', methods=['POST'])
+@login_required
 def create_post(user_id):
     """Create a new post for a specific user"""
     user = User.query.get(user_id)
