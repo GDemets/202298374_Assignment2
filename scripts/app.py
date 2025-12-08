@@ -79,36 +79,36 @@ def book_user(book_id):
     }), 200
 
 ### Posts ###
-@app.route('/posts/<int:user_id>', methods=['GET'])
+@app.route('/users/<int:user_id>/posts', methods=['GET'])
 def get_posts_user(user_id):
     """Get all posts for a user"""
-    posts = Post.query.get(user_id)
+    posts = Post.query.filter_by(user_id=user_id).all()
     if not posts:
         return jsonify({
             'status': 'error',
-            'message': 'Posts not found'
+            'message': 'The corresponding books were not found.'
         }), 404
 
     return jsonify({
         'status': 'success',
         'message': 'Posts successfully retrieved',
-        'data': posts.to_dict()  
+        'data': [post.to_dict() for post in posts]   
     }), 200
 
-@app.route('/posts/<int:book_id>', methods=['GET'])
+@app.route('/books/<int:book_id>/posts', methods=['GET'])
 def get_posts_book(book_id):
     """Get all posts for a user"""
-    posts = Post.query.get(book_id)
+    posts = Post.query.filter_by(book_id=book_id).all()
     if not posts:
         return jsonify({
             'status': 'error',
-            'message': 'Posts not found'
+            'message': 'The corresponding books were not found.'
         }), 404
 
     return jsonify({
         'status': 'success',
         'message': 'Posts successfully retrieved',
-        'data': posts.to_dict()  
+        'data': [post.to_dict() for post in posts]  
     }), 200
 ######################################################################################
 #### POST Endpoints ####
