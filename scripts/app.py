@@ -24,7 +24,7 @@ def log_request_info():
 #### GET Endpoints ###
 ######################################################################################
 
-#### Users ###
+### Users ###
 @app.route('/users', methods=['GET'])
 def get_users():
     """Get all users"""
@@ -110,8 +110,9 @@ def get_posts_user(user_id):
         'message': 'Posts successfully retrieved',
         'data': posts.to_dict()  
     }), 200
-
-### POST Endpoints ###
+######################################################################################
+#### POST Endpoints ####
+######################################################################################
 @app.route('/users',methods=['POST'])
 def create_user():
     """Create a new user"""
@@ -178,7 +179,10 @@ def create_post(user_id):
         'data': new_post.to_dict()
     }), 201
 
+######################################################################################
 ### PUT Endpoints ###
+######################################################################################
+
 @app.route('/users/mail/<int:user_id>', methods=['PUT'])
 def update_mail_student(user_id):
     """Update the mail of an existing user"""   
@@ -238,7 +242,10 @@ def update_pseudo_student(user_id):
         'data': user.to_dict()
     }), 200
 
+######################################################################################
 ### DELETE Endpoints ###
+######################################################################################
+
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
     """Delete an existing user"""
