@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, abort, render_template
+from flasgger import Swagger
 from models import db, User, Post, Book
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import logging
@@ -6,6 +7,7 @@ from datetime import datetime
 
 ### Flask App and Database Configuration ###
 app = Flask(__name__)
+swagger = Swagger(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///BookStore.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = "0123456789"   
@@ -29,6 +31,20 @@ def log_request_info():
 ### GET ###
 @app.route('/users', methods=['GET'])
 def get_users():
+    """
+    Get all the users.
+    ---
+    tags:
+      - Users
+    responses:
+      200:
+        description: Users successfully retrieved.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+    """
     try:
         users = User.query.all()
     except Exception as e:
@@ -42,6 +58,38 @@ def get_users():
 
 @app.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
+    """
+    Get a user by its ID
+    ---
+    tags:
+      - Users
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: User successfully retrieved
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+            data:
+              type: object
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
@@ -54,6 +102,65 @@ def get_user(user_id):
 ### POST ###
 @app.route('/users', methods=['POST'])
 def create_user():
+    """
+    Create a new user
+    ---
+    tags:
+      - Users
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: User information to create
+        schema:
+          type: object
+          required:
+            - pseudo
+            - mail
+            - password
+          properties:
+            pseudo:
+              type: string
+              example: johndoe
+            mail:
+              type: string
+              example: johndoe@example.com
+            password:
+              type: string
+              example: mysecretpassword
+    responses:
+      201:
+        description: User successfully created
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+            data:
+              type: object
+      400:
+        description: Missing or invalid fields
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+      409:
+        description: User already exists
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+    """
     if not request.json or 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
         return jsonify({'status':'error','message': 'Format invalid or missing values'}), 400
     
@@ -79,6 +186,43 @@ def create_user():
 ### PUT ###
 @app.route('/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
+    """
+    Update a user's information
+    ---
+    tags:
+      - Users
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user to update
+      - in: body
+        name: body
+        required: true
+        description: Fields to update
+        schema:
+          type: object
+          properties:
+            pseudo:
+              type: string
+              example: newPseudo
+            mail:
+              type: string
+              example: newmail@example.com
+            password:
+              type: string
+              example: newpassword123
+          required:
+            - mail
+    responses:
+      200:
+        description: User updated successfully
+      400:
+        description: Invalid or missing fields
+      404:
+        description: User not found
+    """
     if not request.json or 'mail' not in request.json:
         return {'message': 'Format invalid or missing values', 'status': 'error'}, 400
     
@@ -102,6 +246,23 @@ def update_user(user_id):
 ### DELETE ###
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
+    """
+    Delete a user by ID
+    ---
+    tags:
+      - Users
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user to delete
+    responses:
+      200:
+        description: User successfully deleted
+      404:
+        description: User not found
+    """
     try:
         user = User.query.get_or_404(user_id)
         db.session.delete(user)
@@ -258,9 +419,11 @@ def book_user(book_id):
 ### POST ###
 @app.route('/books', methods=['POST'])
 def create_book():
+    
     requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json or not all(key in request.json for key in requiered_fields):
         return {'status': 'error','message': 'Format invalid or missing values'}, 400
+    
     book=Book(
         author=request.json['author'],
         title=request.json['title'],
@@ -271,12 +434,14 @@ def create_book():
         price=request.json['price'],
         publication_date=request.json['publication_date']
     )
+
     try:
         db.session.add(book)
         db.session.commit()
     except Exception as e:
         print(e)
         return jsonify({'status': 'error', 'message': 'ISBN already used'}), 409
+    
     return jsonify({
         'status': 'success',
         'message': 'Book successfully created',
