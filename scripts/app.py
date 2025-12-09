@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
 from models import db, User, Post, Book
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_bcrypt import Bcrypt
 import logging
 from datetime import datetime
 
@@ -290,6 +291,10 @@ def delete_user(user_id):
 
     return jsonify({'status': 'success', 'message': 'User successfully deleted'}), 200
 
+######################################################################################
+#                                      Authentication
+######################################################################################
+
 ### User Login ###
 @app.route('/login', methods=['POST'])
 def login():
@@ -341,7 +346,10 @@ def login():
     user = User.query.filter_by(mail=data["mail"]).first()
 
     if user and user.password == data["password"]:
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(
+            identity=str(user.id),                  
+            additional_claims={"role": user.role}    
+        )
         return jsonify({
             'status': 'success',
             'access_token': access_token,
@@ -634,47 +642,65 @@ def create_book():
     ---
     tags:
       - Books
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - author
-              - title
-              - category
-              - publisher
-              - isbn
-              - price
-              - publication_date
-            properties:
-              author:
-                type: string
-              title:
-                type: string
-              category:
-                type: string
-              publisher:
-                type: string
-              summary:
-                type: string
-                default: "No summary available"
-              isbn:
-                type: string
-              price:
-                type: number
-              publication_date:
-                type: string
-                format: date
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: Book data
+        schema:
+          type: object
+          required:
+            - author
+            - title
+            - category
+            - publisher
+            - isbn
+            - price
+            - publication_date
+          properties:
+            author:
+              type: string
+              example: "John Doe"
+            title:
+              type: string
+              example: "Lorem Ipsum"
+            category:
+              type: string
+              example: "Romance"
+            publisher:
+              type: string
+              example: "Lorem Publishing"
+            summary:
+              type: string
+              example: "A good romance"
+            isbn:
+              type: string
+              example: "0000000000"
+            price:
+              type: number
+              example: 15000
+            publication_date:
+              type: string
+              example: "1999-07-08"
+              format: date
     responses:
       201:
         description: Book successfully created
       400:
-        description: Format invalid or missing values
+        description: Invalid or missing fields
+      403:
+        description: Only admins can create books
       409:
         description: ISBN already used
     """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can create books"
+        }), 403
     requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json or not all(key in request.json for key in requiered_fields):
         return {'status': 'error','message': 'Format invalid or missing values'}, 400
