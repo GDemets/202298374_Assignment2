@@ -7,7 +7,22 @@ from datetime import datetime
 
 ### Flask App and Database Configuration ###
 app = Flask(__name__)
-swagger = Swagger(app)
+swagger = Swagger(app, template={
+    "swagger": "2.0",
+    "info": {
+        "title": "BookStore API",
+        "description": "API documentation",
+        "version": "1.0"
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+        }
+    }
+})
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///BookStore.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = "0123456789"   
@@ -185,6 +200,7 @@ def create_user():
 
 ### PUT ###
 @app.route('/users/<int:user_id>', methods=['PUT'])
+@jwt_required()
 def update_user(user_id):
     """
     Update a user's information
@@ -245,6 +261,7 @@ def update_user(user_id):
 
 ### DELETE ###
 @app.route('/users/<int:user_id>', methods=['DELETE'])
+@jwt_required()
 def delete_user(user_id):
     """
     Delete a user by ID
@@ -276,9 +293,50 @@ def delete_user(user_id):
 ### User Login ###
 @app.route('/login', methods=['POST'])
 def login():
+    """
+    User login
+    ---
+    tags:
+      - Authentication
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            mail:
+              type: string
+              example: "admin@mail.com"
+            password:
+              type: string
+              example: "password123"
+          required:
+            - mail
+            - password
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            access_token:
+              type: string
+            message:
+              type: string
+      400:
+        description: Missing mail or password
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json()
+
     if not data or "mail" not in data or "password" not in data:
-        return jsonify({'status': 'error', 'message':'Mail and password are required'}), 400
+        return jsonify({'status': 'error', 'message': 'Mail and password are required'}), 400
 
     user = User.query.filter_by(mail=data["mail"]).first()
 
@@ -287,10 +345,10 @@ def login():
         return jsonify({
             'status': 'success',
             'access_token': access_token,
-            'message': 'Login successful',
+            'message': 'Login successful'
         }), 200
 
-    return jsonify({'status': 'error', 'message':'Invalid credentials'}), 401
+    return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
 
 
 ######################################################################################
@@ -355,9 +413,9 @@ def get_posts_book(book_id):
     }), 200
 
 ### POST ###
-@app.route('/users/<int:user_id>/books/<int:book_id>/posts', methods=['POST'])
+@app.route('/books/<int:book_id>/posts', methods=['POST'])
 @jwt_required()
-def create_post(user_id, book_id):
+def create_post(book_id):
     """
     Create a new post for a specific user and book
     ---
@@ -366,11 +424,6 @@ def create_post(user_id, book_id):
     security:
       - BearerAuth: []
     parameters:
-      - name: user_id
-        in: path
-        required: true
-        type: integer
-        description: ID of the user creating the post
       - name: book_id
         in: path
         required: true
@@ -393,16 +446,21 @@ def create_post(user_id, book_id):
             - score
             - message
     responses:
-      201:
-        description: Post successfully created
-      400:
-        description: Invalid JSON or missing fields
-      404:
-        description: User or book not found
-      500:
-        description: Error while creating the post
+        201:
+            description: Post successfully created
+        400:
+            description: Invalid JSON or missing fields
+        403:
+            description: Unauthorized action
+        404:
+            description: User or book not found
+        500:
+            description: Error while creating the post
+
     """
-    user = User.query.get(user_id)
+    current_user_id = get_jwt_identity()
+
+    user = User.query.get(current_user_id)
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
 
@@ -410,17 +468,14 @@ def create_post(user_id, book_id):
     if not book:
         return jsonify({'status': 'error', 'message': 'Book not found'}), 404
 
-    if not request.json :
-        return jsonify({'status': 'error', 'message': 'Invalid JSON'}), 400
-
-    if 'score' not in request.json or 'message' not in request.json:
-        return jsonify({'status': 'error', 'message': 'Missing score or message'}), 400
+    if not request.json or 'score' not in request.json or 'message' not in request.json:
+        return jsonify({'status': 'error', 'message': 'Invalid JSON or Missing score or message'}), 400
 
     post = Post(
-        user_id=user_id,
+        user_id=current_user_id,
         book_id=book_id,
-        score=request.json.get('score'),
-        message=request.json.get('message')
+        score=request.json['score'],
+        message=request.json['message']
     )
 
     try:
@@ -438,6 +493,7 @@ def create_post(user_id, book_id):
 
 ### PUT ###
 @app.route('/posts/<int:post_id>', methods=['PUT'])
+@jwt_required()
 def update_post(post_id):
     """
     Update an existing post
@@ -488,6 +544,7 @@ def update_post(post_id):
 
 ### DELETE ###
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
+@jwt_required()
 def delete_post(post_id):
     """
     Delete a post by ID
@@ -540,7 +597,7 @@ def get_books():
     }), 200
 
 @app.route('/books/<int:book_id>', methods=['GET'])
-def book_user(book_id):
+def get_book(book_id):
     """
     Get a book by its ID
     ---
@@ -570,6 +627,7 @@ def book_user(book_id):
 
 ### POST ###
 @app.route('/books', methods=['POST'])
+@jwt_required()
 def create_book():
     """
     Create a new book
@@ -647,6 +705,7 @@ def create_book():
 
 ### DELETE ###
 @app.route('/books/<int:book_id>', methods=['DELETE'])
+@jwt_required()
 def delete_book(book_id):
     """
     Delete a book by its ID
@@ -677,6 +736,7 @@ def delete_book(book_id):
 
 ### PUT ###
 @app.route('/books/<int:book_id>', methods=['PUT'])
+@jwt_required()
 def update_book(book_id):
     """
     Update a book by its ID
