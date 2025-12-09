@@ -300,6 +300,23 @@ def login():
 ### GET ###
 @app.route('/users/<int:user_id>/posts', methods=['GET'])
 def get_posts_user(user_id):
+    """
+    Get all posts created by a specific user
+    ---
+    tags:
+      - Posts
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user whose posts you want to retrieve
+    responses:
+      200:
+        description: Posts successfully retrieved
+      404:
+        description: User not found or no posts found
+    """
     posts = Post.query.get_or_404(user_id)
 
     return jsonify({
@@ -310,6 +327,23 @@ def get_posts_user(user_id):
 
 @app.route('/books/<int:book_id>/posts', methods=['GET'])
 def get_posts_book(book_id):
+    """
+    Get all posts related to a specific book
+    ---
+    tags:
+      - Posts
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the book whose posts you want to retrieve
+    responses:
+      200:
+        description: Posts successfully retrieved
+      404:
+        description: No posts found for this book
+    """
     posts = Post.query.filter_by(book_id=book_id).all()
     if not posts:
         return jsonify({'status': 'error', 'message': 'The corresponding books were not found.'}), 404
@@ -324,7 +358,50 @@ def get_posts_book(book_id):
 @app.route('/users/<int:user_id>/books/<int:book_id>/posts', methods=['POST'])
 @jwt_required()
 def create_post(user_id, book_id):
-    
+    """
+    Create a new post for a specific user and book
+    ---
+    tags:
+      - Posts
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user creating the post
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the book the post refers to
+      - in: body
+        name: body
+        required: true
+        description: Post data
+        schema:
+          type: object
+          properties:
+            score:
+              type: integer
+              example: 4
+            message:
+              type: string
+              example: "Excellent book, I loved it!"
+          required:
+            - score
+            - message
+    responses:
+      201:
+        description: Post successfully created
+      400:
+        description: Invalid JSON or missing fields
+      404:
+        description: User or book not found
+      500:
+        description: Error while creating the post
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
@@ -362,6 +439,38 @@ def create_post(user_id, book_id):
 ### PUT ###
 @app.route('/posts/<int:post_id>', methods=['PUT'])
 def update_post(post_id):
+    """
+    Update an existing post
+    ---
+    tags:
+      - Posts
+    parameters:
+      - name: post_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the post to update
+      - in: body
+        name: body
+        required: true
+        description: Fields to update for the post
+        schema:
+          type: object
+          properties:
+            score:
+              type: integer
+              example: 5
+            message:
+              type: string
+              example: "Updated review message"
+    responses:
+      200:
+        description: Post updated successfully
+      400:
+        description: Invalid or missing JSON body
+      404:
+        description: Post not found
+    """
     try:
         post = Post.query.get_or_404(post_id)
         if not request.json:
@@ -380,6 +489,23 @@ def update_post(post_id):
 ### DELETE ###
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
+    """
+    Delete a post by ID
+    ---
+    tags:
+      - Posts
+    parameters:
+      - name: post_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the post to delete
+    responses:
+      200:
+        description: Post successfully deleted
+      404:
+        description: Post not found
+    """
     try:
         post = Post.query.get_or_404(post_id)
         db.session.delete(post)
@@ -397,6 +523,15 @@ def delete_post(post_id):
 ### GET Books ###
 @app.route('/books', methods=['GET'])
 def get_books():
+    """
+    Get all books
+    ---
+    tags:
+      - Books
+    responses:
+      200:
+        description: List of all books
+    """
     books = Book.query.all()
     return jsonify({
         'status': 'success',
@@ -406,6 +541,23 @@ def get_books():
 
 @app.route('/books/<int:book_id>', methods=['GET'])
 def book_user(book_id):
+    """
+    Get a book by its ID
+    ---
+    tags:
+      - Books
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the book to retrieve
+    responses:
+      200:
+        description: Book successfully retrieved
+      404:
+        description: Book not found
+    """
     book = Book.query.get(book_id)
     if not book:
         return jsonify({'status': 'error', 'message': 'Book not found'}), 404
@@ -419,7 +571,52 @@ def book_user(book_id):
 ### POST ###
 @app.route('/books', methods=['POST'])
 def create_book():
-    
+    """
+    Create a new book
+    ---
+    tags:
+      - Books
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - author
+              - title
+              - category
+              - publisher
+              - isbn
+              - price
+              - publication_date
+            properties:
+              author:
+                type: string
+              title:
+                type: string
+              category:
+                type: string
+              publisher:
+                type: string
+              summary:
+                type: string
+                default: "No summary available"
+              isbn:
+                type: string
+              price:
+                type: number
+              publication_date:
+                type: string
+                format: date
+    responses:
+      201:
+        description: Book successfully created
+      400:
+        description: Format invalid or missing values
+      409:
+        description: ISBN already used
+    """
     requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json or not all(key in request.json for key in requiered_fields):
         return {'status': 'error','message': 'Format invalid or missing values'}, 400
@@ -451,6 +648,23 @@ def create_book():
 ### DELETE ###
 @app.route('/books/<int:book_id>', methods=['DELETE'])
 def delete_book(book_id):
+    """
+    Delete a book by its ID
+    ---
+    tags:
+      - Books
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      200:
+        description: Book successfully deleted
+      404:
+        description: Book does not exist
+    """
     try:
         book = Book.query.get_or_404(book_id)
         db.session.delete(book)
@@ -464,6 +678,71 @@ def delete_book(book_id):
 ### PUT ###
 @app.route('/books/<int:book_id>', methods=['PUT'])
 def update_book(book_id):
+    """
+    Update a book by its ID
+    ---
+    tags:
+      - Books
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              author:
+                type: string
+              title:
+                type: string
+              category:
+                type: string
+              publisher:
+                type: string
+              summary:
+                type: string
+              isbn:
+                type: string
+              price:
+                type: number
+              publication_date:
+                type: string
+                format: date
+            example:
+              author: "New Author"
+              title: "Updated Book Title"
+              category: "Science"
+              publisher: "New Publisher"
+              summary: "Updated summary"
+              isbn: "9781234567897"
+              price: 19.99
+              publication_date: "2021-07-12"
+    responses:
+      200:
+        description: Book successfully modified
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                message:
+                  type: string
+                data:
+                  type: object
+      400:
+        description: Invalid or missing JSON
+      404:
+        description: Book does not exist
+      409:
+        description: ISBN already used
+    """
     if not request.json:
         return jsonify({'message': 'Invalid or missing JSON', 'status': 'error'}), 400
     
