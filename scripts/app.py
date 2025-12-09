@@ -309,10 +309,10 @@ def login():
           properties:
             mail:
               type: string
-              example: "admin@mail.com"
+              example: "john@mail.com"
             password:
               type: string
-              example: "password123"
+              example: "1234"
           required:
             - mail
             - password
@@ -341,7 +341,7 @@ def login():
     user = User.query.filter_by(mail=data["mail"]).first()
 
     if user and user.password == data["password"]:
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))
         return jsonify({
             'status': 'success',
             'access_token': access_token,
@@ -356,7 +356,7 @@ def login():
 ######################################################################################
 
 ### GET ###
-@app.route('/users/<int:user_id>/posts', methods=['GET'])
+@app.route('/posts/<int:user_id>/users', methods=['GET'])
 def get_posts_user(user_id):
     """
     Get all posts created by a specific user
