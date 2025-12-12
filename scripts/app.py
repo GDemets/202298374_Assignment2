@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
 from models import db, User, Review, Book, Category
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token,jwt_required, get_jwt_identity, get_jwt
 from flask_bcrypt import Bcrypt
 import logging
 from datetime import datetime
@@ -377,12 +377,44 @@ def login():
         additional_claims={"role": user.role}
     )
 
+    refresh_token = create_refresh_token(identity=str(user.id))
+
     return jsonify({
         'status': 'success',
         'access_token': access_token,
+        'refresh_token': refresh_token,
         'message': 'Login successful'
     }), 200
 
+@app.route("/refresh", methods=["POST"])
+@jwt_required(optional=True)
+def refresh():
+    """
+    Refresh access token
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: New access token created
+      401:
+        description: Missing or invalid refresh token
+    """
+    current_user_id = get_jwt_identity()
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+
+    new_access_token = create_access_token(
+        identity=current_user_id
+    )
+
+    return jsonify({
+        "status": "success",
+        "access_token": new_access_token,
+        "message": "Access token successfully refreshed"
+    }), 200
 
 ######################################################################################
 #                                      REVIEWS
