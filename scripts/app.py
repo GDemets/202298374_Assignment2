@@ -127,6 +127,61 @@ def get_user(user_id):
         'data': user.to_dict()
     }), 200
 
+@app.route('/users/me', methods=['GET'])
+@jwt_required(optional=True)
+def get_me():
+    """
+    Get a user by its ID
+    ---
+    tags:
+      - Users
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: User successfully retrieved
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+            data:
+              type: object
+      403:
+        description: You are not connected
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+    """
+    current_user_id = get_jwt_identity()
+    print(f"azerty: {current_user_id}")
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+    
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+    return jsonify({
+        'status': 'success',
+        'message': 'User successfully retrieved',
+        'data': user.to_dict()
+    }), 200
+
 ### POST ###
 @app.route('/users', methods=['POST'])
 def create_user():
@@ -351,27 +406,28 @@ def login():
       400:
         description: Missing mail or password
       401:
-        description: Invalid credentials
+        description: Invalid password
     """
     data = request.get_json()
-
-    if not data or "mail" not in data or "password" not in data:
-        return jsonify({'status': 'error', 'message': 'Mail and password are required'}), 400
-
     user = User.query.filter_by(mail=data["mail"]).first()
 
-    if user and user.password == data["password"]:
-        access_token = create_access_token(
-            identity=str(user.id),                  
-            additional_claims={"role": user.role}    
-        )
-        return jsonify({
-            'status': 'success',
-            'access_token': access_token,
-            'message': 'Login successful'
-        }), 200
+    if user is None:
+        return jsonify({'status': 'error', 'message': 'User does not exist'}), 404
 
-    return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
+    if user.password != data["password"]:
+        return jsonify({'status': 'error', 'message': 'Invalid password'}), 401
+
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={"role": user.role}
+    )
+
+    return jsonify({
+        'status': 'success',
+        'access_token': access_token,
+        'message': 'Login successful'
+    }), 200
+
 
 ######################################################################################
 #                                      POSTS
