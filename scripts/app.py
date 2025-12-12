@@ -6,6 +6,18 @@ from flask_bcrypt import Bcrypt
 import logging
 from datetime import datetime
 
+# TODO: 
+# /me get user info from token
+# JWT   admin: delete book, create book
+#       user : delete post, update post, delete user, update user
+# Authentication : logout, refresh token
+# Book : get a book by is category, author or title
+# THE CODE IS TOO LONG
+# .env for secret key
+# Bcrypt for password hashing
+# Dockerfile 
+
+
 ### Flask App and Database Configuration ###
 app = Flask(__name__)
 swagger = Swagger(app, template={
@@ -20,7 +32,8 @@ swagger = Swagger(app, template={
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
-            "description": "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+            #"description": "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+            "description": "Add 'Bearer <your_token>'"
         }
     }
 })
@@ -358,7 +371,6 @@ def login():
 
     return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
 
-
 ######################################################################################
 #                                      POSTS
 ######################################################################################
@@ -635,7 +647,7 @@ def get_book(book_id):
 
 ### POST ###
 @app.route('/books', methods=['POST'])
-@jwt_required()
+@jwt_required(optional=True)
 def create_book():
     """
     Create a new book
@@ -701,9 +713,10 @@ def create_book():
             "status": "error",
             "message": "Only admins can create books"
         }), 403
+    
     requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json or not all(key in request.json for key in requiered_fields):
-        return {'status': 'error','message': 'Format invalid or missing values'}, 400
+        return jsonify({'status': 'error','message': 'Format invalid or missing values'}), 400
     
     book=Book(
         author=request.json['author'],
@@ -731,7 +744,7 @@ def create_book():
 
 ### DELETE ###
 @app.route('/books/<int:book_id>', methods=['DELETE'])
-@jwt_required()
+@jwt_required(optional=True)
 def delete_book(book_id):
     """
     Delete a book by its ID
@@ -747,9 +760,17 @@ def delete_book(book_id):
     responses:
       200:
         description: Book successfully deleted
+      403:
+        description: Only admins can delete books
       404:
         description: Book does not exist
     """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can delete books"
+        }), 403
     try:
         book = Book.query.get_or_404(book_id)
         db.session.delete(book)
@@ -762,7 +783,7 @@ def delete_book(book_id):
 
 ### PUT ###
 @app.route('/books/<int:book_id>', methods=['PUT'])
-@jwt_required()
+@jwt_required(optional=True)
 def update_book(book_id):
     """
     Update a book by its ID
@@ -775,60 +796,64 @@ def update_book(book_id):
         required: true
         schema:
           type: integer
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              author:
-                type: string
-              title:
-                type: string
-              category:
-                type: string
-              publisher:
-                type: string
-              summary:
-                type: string
-              isbn:
-                type: string
-              price:
-                type: number
-              publication_date:
-                type: string
-                format: date
-            example:
-              author: "New Author"
-              title: "Updated Book Title"
-              category: "Science"
-              publisher: "New Publisher"
-              summary: "Updated summary"
-              isbn: "9781234567897"
-              price: 19.99
-              publication_date: "2021-07-12"
+      - in: body
+        name: body
+        required: true
+        description: Book data
+        schema:
+          type: object
+          required:
+            - author
+            - title
+            - category
+            - publisher
+            - isbn
+            - price
+            - publication_date
+          properties:
+            author:
+              type: string
+              example: "John Doe"
+            title:
+              type: string
+              example: "Lorem Ipsum"
+            category:
+              type: string
+              example: "Romance"
+            publisher:
+              type: string
+              example: "Lorem Publishing"
+            summary:
+              type: string
+              example: "A good romance"
+            isbn:
+              type: string
+              example: "0000000000"
+            price:
+              type: number
+              example: 15000
+            publication_date:
+              type: string
+              example: "1999-07-08"
+              format: date
     responses:
       200:
         description: Book successfully modified
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                status:
-                  type: string
-                message:
-                  type: string
-                data:
-                  type: object
       400:
         description: Invalid or missing JSON
+      403:
+        description: Only admins can modify books
       404:
         description: Book does not exist
       409:
         description: ISBN already used
     """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can modify books"
+        }), 403
     if not request.json:
         return jsonify({'message': 'Invalid or missing JSON', 'status': 'error'}), 400
     
