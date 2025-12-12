@@ -293,6 +293,58 @@ def update_user():
         'data': user.to_dict()
     }), 200
 
+### PATCH ###
+@app.route('/user/<int:user_id>/make_admin', methods=['PATCH'])
+@jwt_required()
+def make_user_admin(user_id):
+    """
+    Promote a user to admin (admin only)
+    ---
+    tags:
+      - Users
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the user to promote
+    responses:
+      200:
+        description: User promoted to admin successfully
+      403:
+        description: Forbidden, only admin can promote
+      404:
+        description: User not found
+      500:
+        description: Error while updating user
+    """
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user or current_user.role != 'admin':
+        return jsonify({'status': 'error', 'message': 'Forbidden: admin only'}), 403
+
+    user_to_promote = User.query.get(user_id)
+    if not user_to_promote:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    if user_to_promote.role == 'admin':
+        return jsonify({'status': 'success', 'message': 'User is already an admin'}), 200
+
+    try:
+        user_to_promote.role = 'admin'
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Error promoting user:", e)
+        return jsonify({'status': 'error', 'message': 'Error while updating user'}), 500
+
+    return jsonify({
+        'status': 'success',
+        'message': f'User {user_to_promote.pseudo} has been promoted to admin',
+        'user': user_to_promote.to_dict()
+    }), 200
 ### DELETE ###
 @app.route('/users/me', methods=['DELETE'])
 @jwt_required(optional=True)
