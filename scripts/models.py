@@ -8,7 +8,7 @@ class User(db.Model):
     mail = db.Column(db.String(30), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    posts = db.relationship('Post', backref='user', lazy=True)
+    reviews = db.relationship('Review', backref='user', lazy=True)
 
     def to_dict(self):
         return {
@@ -29,7 +29,7 @@ class Book(db.Model):
     isbn = db.Column(db.String(10), unique=True, nullable=False)
     price = db.Column(db.Integer, nullable=False)
     publication_date = db.Column(db.String(10), nullable=False)
-    posts = db.relationship('Post', backref='book', lazy=True)
+    reviews = db.relationship('Review', backref='book', lazy=True)
 
     def to_dict(self):
         return {
@@ -45,7 +45,7 @@ class Book(db.Model):
         }
 
 
-class Post(db.Model):
+class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)

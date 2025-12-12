@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
-from models import db, User, Post, Book
+from models import db, User, Review, Book
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from flask_bcrypt import Bcrypt
 import logging
@@ -84,54 +84,11 @@ def get_users():
         'data': [user.to_dict() for user in users]
     }), 200
 
-@app.route('/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    """
-    Get a user by its ID
-    ---
-    tags:
-      - Users
-    parameters:
-      - name: user_id
-        in: path
-        type: integer
-        required: true
-    responses:
-      200:
-        description: User successfully retrieved
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-            message:
-              type: string
-            data:
-              type: object
-      404:
-        description: User not found
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-            message:
-              type: string
-    """
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
-    return jsonify({
-        'status': 'success',
-        'message': 'User successfully retrieved',
-        'data': user.to_dict()
-    }), 200
-
 @app.route('/users/me', methods=['GET'])
 @jwt_required(optional=True)
 def get_me():
     """
-    Get a user by its ID
+    Get a user information
     ---
     tags:
       - Users
@@ -431,75 +388,75 @@ def login():
 
 
 ######################################################################################
-#                                      POSTS
+#                                      REVIEWS
 ######################################################################################
 
 ### GET ###
-@app.route('/posts/<int:user_id>/users', methods=['GET'])
-def get_posts_user(user_id):
+@app.route('/reviews/<int:user_id>/users', methods=['GET'])
+def get_reviews_user(user_id):
     """
-    Get all posts created by a specific user
+    Get all reviews created by a specific user
     ---
     tags:
-      - Posts
+      - Reviews
     parameters:
       - name: user_id
         in: path
         required: true
         type: integer
-        description: ID of the user whose posts you want to retrieve
+        description: ID of the user whose Reviews you want to retrieve
     responses:
       200:
-        description: Posts successfully retrieved
+        description: Reviews successfully retrieved
       404:
-        description: User not found or no posts found
+        description: User not found or no reviews found
     """
-    posts = Post.query.get_or_404(user_id)
+    reviews = Review.query.get_or_404(user_id)
 
     return jsonify({
         'status': 'success',
-        'message': 'Posts successfully retrieved',
-        'data': [post.to_dict() for post in posts]
+        'message': 'Reviews successfully retrieved',
+        'data': [review.to_dict() for review in reviews]
     }), 200
 
-@app.route('/books/<int:book_id>/posts', methods=['GET'])
-def get_posts_book(book_id):
+@app.route('/books/<int:book_id>/reviews', methods=['GET'])
+def get_reviews_book(book_id):
     """
-    Get all posts related to a specific book
+    Get all reviews related to a specific book
     ---
     tags:
-      - Posts
+      - Reviews
     parameters:
       - name: book_id
         in: path
         required: true
         type: integer
-        description: ID of the book whose posts you want to retrieve
+        description: ID of the book whose reviews you want to retrieve
     responses:
       200:
-        description: Posts successfully retrieved
+        description: Reviews successfully retrieved
       404:
-        description: No posts found for this book
+        description: No reviews found for this book
     """
-    posts = Post.query.filter_by(book_id=book_id).all()
-    if not posts:
+    reviews = Review.query.filter_by(book_id=book_id).all()
+    if not reviews:
         return jsonify({'status': 'error', 'message': 'The corresponding books were not found.'}), 404
 
     return jsonify({
         'status': 'success',
-        'message': 'Posts successfully retrieved',
-        'data': [post.to_dict() for post in posts]
+        'message': 'Reviews successfully retrieved',
+        'data': [review.to_dict() for review in reviews]
     }), 200
 
 ### POST ###
-@app.route('/books/<int:book_id>/posts', methods=['POST'])
+@app.route('/books/<int:book_id>/reviews', methods=['POST'])
 @jwt_required()
-def create_post(book_id):
+def create_review(book_id):
     """
-    Create a new post for a specific user and book
+    Create a new review for a specific user and book
     ---
     tags:
-      - Posts
+      - Reviews
     security:
       - BearerAuth: []
     parameters:
@@ -507,11 +464,11 @@ def create_post(book_id):
         in: path
         required: true
         type: integer
-        description: ID of the book the post refers to
+        description: ID of the book the review refers to
       - in: body
         name: body
         required: true
-        description: Post data
+        description: Review data
         schema:
           type: object
           properties:
@@ -526,7 +483,7 @@ def create_post(book_id):
             - message
     responses:
         201:
-            description: Post successfully created
+            description: Review successfully created
         400:
             description: Invalid JSON or missing fields
         403:
@@ -534,7 +491,7 @@ def create_post(book_id):
         404:
             description: User or book not found
         500:
-            description: Error while creating the post
+            description: Error while creating the review
 
     """
     current_user_id = get_jwt_identity()
@@ -550,7 +507,7 @@ def create_post(book_id):
     if not request.json or 'score' not in request.json or 'message' not in request.json:
         return jsonify({'status': 'error', 'message': 'Invalid JSON or Missing score or message'}), 400
 
-    post = Post(
+    review = Review(
         user_id=current_user_id,
         book_id=book_id,
         score=request.json['score'],
@@ -558,37 +515,37 @@ def create_post(book_id):
     )
 
     try:
-        db.session.add(post)
+        db.session.add(review)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Error while creating post'}), 500
+        return jsonify({'status': 'error', 'message': 'Error while creating review'}), 500
 
     return jsonify({
         'status': 'success',
-        'message': 'Post successfully created',
-        'data': post.to_dict()
+        'message': 'Review successfully created',
+        'data': review.to_dict()
     }), 201
 
 ### PUT ###
-@app.route('/posts/<int:post_id>', methods=['PUT'])
+@app.route('/reviews/<int:review_id>', methods=['PUT'])
 @jwt_required()
-def update_post(post_id):
+def update_review(review_id):
     """
-    Update an existing post
+    Update an existing review
     ---
     tags:
-      - Posts
+      - Reviews
     parameters:
-      - name: post_id
+      - name: review_id
         in: path
         required: true
         type: integer
-        description: ID of the post to update
+        description: ID of the review to update
       - in: body
         name: body
         required: true
-        description: Fields to update for the post
+        description: Fields to update for the review
         schema:
           type: object
           properties:
@@ -600,57 +557,57 @@ def update_post(post_id):
               example: "Updated review message"
     responses:
       200:
-        description: Post updated successfully
+        description: Review updated successfully
       400:
         description: Invalid or missing JSON body
       404:
-        description: Post not found
+        description: Review not found
     """
     try:
-        post = Post.query.get_or_404(post_id)
+        review= Review.query.get_or_404(review_id)
         if not request.json:
             abort(400)        
-        post.score = request.json.get('score', post.score)
-        post.message = request.json.get('message', post.message)
+        review.score = request.json.get('score', review.score)
+        review.message = request.json.get('message', review.message)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Post does not exist'}), 404
+        return jsonify({'status': 'error', 'message': 'Review does not exist'}), 404
     return jsonify({
         'status': 'success',
-        'message': 'Post successfully modified',
-        'data': post.to_dict()}),200
+        'message': 'Review successfully modified',
+        'data': review.to_dict()}),200
 
 ### DELETE ###
-@app.route('/posts/<int:post_id>', methods=['DELETE'])
+@app.route('/reviews/<int:review_id>', methods=['DELETE'])
 @jwt_required()
-def delete_post(post_id):
+def delete_review(review_id):
     """
-    Delete a post by ID
+    Delete a review by ID
     ---
     tags:
-      - Posts
+      - Reviews
     parameters:
-      - name: post_id
+      - name: review_id
         in: path
         required: true
         type: integer
-        description: ID of the post to delete
+        description: ID of the review to delete
     responses:
       200:
-        description: Post successfully deleted
+        description: Review successfully deleted
       404:
-        description: Post not found
+        description: Review not found
     """
     try:
-        post = Post.query.get_or_404(post_id)
-        db.session.delete(post)
+        review = Review.query.get_or_404(review_id)
+        db.session.delete(review)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Post does not exist'}), 404
+        return jsonify({'status': 'error', 'message': 'Review does not exist'}), 404
 
-    return jsonify({'status': 'success', 'message': 'Post successfully deleted'}), 200
+    return jsonify({'status': 'success', 'message': 'Reviewsuccessfully deleted'}), 200
 
 ######################################################################################
 #                                      BOOKS

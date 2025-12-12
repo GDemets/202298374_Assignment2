@@ -1,5 +1,5 @@
 from app import app
-from models import db, User, Book, Post
+from models import db, User, Book, Review
 
 with app.app_context():
 
@@ -40,9 +40,9 @@ with app.app_context():
     db.session.add(b2)
     db.session.commit()
 
-    p1 = Post(user_id=u1.id, book_id=b1.id, score=5, message="Really great book !")
-    p2 = Post(user_id=u1.id, book_id=b2.id, score=4, message="Interesting read.")
-    p3 = Post(user_id=u2.id, book_id=b1.id, score=3, message="It was okay.")    
+    p1 = Review(user_id=u1.id, book_id=b1.id, score=5, message="Really great book !")
+    p2 = Review(user_id=u1.id, book_id=b2.id, score=4, message="Interesting read.")
+    p3 = Review(user_id=u2.id, book_id=b1.id, score=3, message="It was okay.")    
 
 
     db.session.add_all([p1, p2, p3])
