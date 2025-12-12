@@ -42,8 +42,20 @@ with app.app_context():
         publication_date="1954-07-29",
     )
 
+    b3 = Book(
+        author="Test Author",
+        title="Test Book",
+        category_id=c2.id,
+        publisher="Fiction House",
+        summary="A lorem ipsum text.",
+        isbn="18293748392",
+        price=10500,
+        publication_date="1954-07-29",
+    )
+
     db.session.add(b1)
     db.session.add(b2)
+    db.session.add(b3)
     db.session.commit()
 
     p1 = Review(user_id=u1.id, book_id=b1.id, score=5, message="Really great book !")

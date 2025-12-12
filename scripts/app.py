@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
-from models import db, User, Review, Book
+from models import db, User, Review, Book, Category
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from flask_bcrypt import Bcrypt
 import logging
@@ -23,7 +23,6 @@ swagger = Swagger(app, template={
     "info": {
         "title": "BookStore API",
         "description": "API documentation",
-        "version": "1.0"
     },
     "securityDefinitions": {
         "BearerAuth": {
@@ -36,7 +35,7 @@ swagger = Swagger(app, template={
 })
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///BookStore.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = "0123456789"   
+app.config['JWT_SECRET_KEY'] = "0123456789"   #openssl rand -hex 64
 db.init_app(app)
 jwt = JWTManager(app)
 
@@ -900,6 +899,259 @@ def update_book(book_id):
         'status': 'success',
         'message': 'Book successfully modified',
         'data': book.to_dict()
+    }), 200
+
+######################################################################################
+#                                      CATEGORIES
+######################################################################################
+
+### GET Books ###
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    """
+    Get all categories
+    ---
+    tags:
+      - Categories
+    responses:
+      200:
+        description: List of all categories
+    """
+    categories = Category.query.all()
+    return jsonify({
+        'status': 'success',
+        'message': 'Categories successfully retrieved',
+        'data': [cat.to_dict() for cat in categories]
+    }), 200
+
+@app.route('/categories/<int:cat_id>', methods=['GET'])
+def get_category(cat_id):
+    """
+    Get a category by its ID
+    ---
+    tags:
+      - Categories
+    parameters:
+      - name: cat_id
+        in: path
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Book successfully retrieved
+      404:
+        description: Book not found
+    """
+    cat = Category.query.get(cat_id)
+    if not cat:
+        return jsonify({'status': 'error', 'message': 'Category not found'}), 404
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Category successfully retrieved',
+        'data': cat.to_dict()
+    }), 200
+
+### POST ###
+@app.route('/categories', methods=['POST'])
+@jwt_required(optional=True)
+def create_category():
+    """
+    Create a new category
+    ---
+    tags:
+      - Categories
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              example: "Action"
+    responses:
+      201:
+        description: Category successfully created
+      400:
+        description: Invalid or missing fields
+      403:
+        description: Only admins can create categories
+      409:
+        description: Category already exists
+    """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can create categories"
+        }), 403
+    
+    if not request.json or "name" not in request.json:
+        return jsonify({
+            'status': 'error',
+            'message': 'Format invalid or missing values'
+        }), 400
+    
+    cat = Category(name=request.json['name'])
+
+    try:
+        db.session.add(cat)
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        return jsonify({
+            'status': 'error',
+            'message': 'Category already exists'
+        }), 409
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Category successfully created',
+        'data': cat.to_dict()
+    }), 201
+
+@app.route('/categories/<int:category_id>', methods=['PATCH'])
+@jwt_required(optional=True)
+def update_category(category_id):
+    """
+    Update category name
+    ---
+    tags:
+      - Categories
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: category_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              example: "NewCat"
+    responses:
+      200:
+        description: Category updated
+      400:
+        description: Invalid fields
+      403:
+        description: Only admins can update categories
+      404:
+        description: Category not found
+      409:
+        description: Category name already exists
+    """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can update categories"
+        }), 403
+
+    if not request.json or "name" not in request.json:
+        return jsonify({
+            'status': 'error',
+            'message': 'Missing or invalid fields'
+        }), 400
+
+    new_name = request.json["name"]
+
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({
+            'status': 'error',
+            'message': 'Category not found'
+        }), 404
+
+    category.name = new_name
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        return jsonify({
+            'status': 'error',
+            'message': 'Category name already exists'
+        }), 409
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Category successfully updated',
+        'data': category.to_dict()
+    }), 200
+
+@app.route('/categories/<int:category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_category(category_id):
+    """
+    Delete a category
+    ---
+    tags:
+      - Categories
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: category_id
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Category deleted
+      403:
+        description: Only admins can delete categories
+      404:
+        description: Category not found
+      409:
+        description: Category has books attached
+    """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can delete categories"
+        }), 403
+
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({
+            "status": "error",
+            "message": "Category not found"
+        }), 404
+
+    if len(category.books) > 0:
+        return jsonify({
+            "status": "error",
+            "message": "Category cannot be deleted because books are associated with it"
+        }), 409
+
+    try:
+        db.session.delete(category)
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        return jsonify({
+            "status": "error",
+            "message": "An error occurred while deleting category"
+        }), 500
+
+    return jsonify({
+        "status": "success",
+        "message": "Category successfully deleted",
+        "data": category.to_dict()
     }), 200
 
 if __name__ == '__main__':

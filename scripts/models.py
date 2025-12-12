@@ -70,5 +70,5 @@ class Category(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'books':[book.to_dict() for book in self.books]
+            'books': [book.id for book in self.books]
         }
