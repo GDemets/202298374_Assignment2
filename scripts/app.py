@@ -392,26 +392,28 @@ def login():
 ######################################################################################
 
 ### GET ###
-@app.route('/reviews/<int:user_id>/users', methods=['GET'])
-def get_reviews_user(user_id):
+@app.route('/reviews/me', methods=['GET'])
+@jwt_required(optional=True)
+def get_reviews_user():
     """
-    Get all reviews created by a specific user
+    Get all reviews for connected user
     ---
     tags:
       - Reviews
-    parameters:
-      - name: user_id
-        in: path
-        required: true
-        type: integer
-        description: ID of the user whose Reviews you want to retrieve
+    security:
+      - BearerAuth: []
     responses:
       200:
         description: Reviews successfully retrieved
-      404:
-        description: User not found or no reviews found
+      403:
+        description: You are not connected
     """
-    reviews = Review.query.get_or_404(user_id)
+    current_user_id = get_jwt_identity()
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+  
+    reviews = Review.query.filter_by(user_id=current_user_id).all()
+
 
     return jsonify({
         'status': 'success',
@@ -431,7 +433,6 @@ def get_reviews_book(book_id):
         in: path
         required: true
         type: integer
-        description: ID of the book whose reviews you want to retrieve
     responses:
       200:
         description: Reviews successfully retrieved
