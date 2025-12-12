@@ -320,11 +320,13 @@ def make_user_admin(user_id):
       500:
         description: Error while updating user
     """
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    if not current_user or current_user.role != 'admin':
-        return jsonify({'status': 'error', 'message': 'Forbidden: admin only'}), 403
-
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can create books"
+        }), 403
+    
     user_to_promote = User.query.get(user_id)
     if not user_to_promote:
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
@@ -363,7 +365,6 @@ def delete_user():
         description: User not found
     """
     current_user_id = get_jwt_identity()
-    print(f"azerty: {current_user_id}")
     if current_user_id is None:
         return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
     
