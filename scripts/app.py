@@ -952,6 +952,40 @@ def get_category(cat_id):
         'data': cat.to_dict()
     }), 200
 
+@app.route('/categories/<int:category_id>/books', methods=['GET'])
+def get_books_by_category(category_id):
+    """
+    Get all books for a given category
+    ---
+    tags:
+      - Categories
+    parameters:
+      - in: path
+        name: category_id
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Books retrieved
+      404:
+        description: Category not found
+    """
+
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({
+            "status": "error",
+            "message": "Category not found"
+        }), 404
+
+    books = [book.to_dict() for book in category.books]
+
+    return jsonify({
+        "status": "success",
+        "message": "Books retrieved",
+        "data": books
+    }), 200
+
 ### POST ###
 @app.route('/categories', methods=['POST'])
 @jwt_required(optional=True)
@@ -1016,6 +1050,7 @@ def create_category():
         'data': cat.to_dict()
     }), 201
 
+### PATCH ###
 @app.route('/categories/<int:category_id>', methods=['PATCH'])
 @jwt_required(optional=True)
 def update_category(category_id):
@@ -1093,6 +1128,7 @@ def update_category(category_id):
         'data': category.to_dict()
     }), 200
 
+### DELETE ###
 @app.route('/categories/<int:category_id>', methods=['DELETE'])
 @jwt_required()
 def delete_category(category_id):
