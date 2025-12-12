@@ -331,28 +331,29 @@ def update_user():
     }), 200
 
 ### DELETE ###
-@app.route('/users/<int:user_id>', methods=['DELETE'])
-@jwt_required()
-def delete_user(user_id):
+@app.route('/users/me', methods=['DELETE'])
+@jwt_required(optional=True)
+def delete_user():
     """
     Delete a user by ID
     ---
     tags:
       - Users
-    parameters:
-      - name: user_id
-        in: path
-        required: true
-        type: integer
-        description: ID of the user to delete
+    security:
+      - BearerAuth: []
     responses:
       200:
         description: User successfully deleted
       404:
         description: User not found
     """
+    current_user_id = get_jwt_identity()
+    print(f"azerty: {current_user_id}")
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+    
     try:
-        user = User.query.get_or_404(user_id)
+        user = User.query.get_or_404(current_user_id)
         db.session.delete(user)
         db.session.commit()
     except Exception as e:
