@@ -3,8 +3,12 @@ from flasgger import Swagger
 from models import db, User, Review, Book, Category
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token,jwt_required, get_jwt_identity, get_jwt
 from flask_bcrypt import Bcrypt
-import logging
 from datetime import datetime
+from dotenv import load_dotenv
+from datetime import timedelta
+
+import logging
+import os
 
 # TODO: 
 # JWT   user : delete post, update post, delete user, update user
@@ -17,7 +21,13 @@ from datetime import datetime
 
 
 ### Flask App and Database Configuration ###
+load_dotenv()
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URI")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")
+app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
 swagger = Swagger(app, template={
     "swagger": "2.0",
     "info": {
@@ -33,9 +43,7 @@ swagger = Swagger(app, template={
         }
     }
 })
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///BookStore.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = "0123456789"   #openssl rand -hex 64
+
 db.init_app(app)
 jwt = JWTManager(app)
 
