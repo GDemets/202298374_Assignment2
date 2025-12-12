@@ -1,5 +1,5 @@
 from app import app
-from models import db, User, Book, Review
+from models import db, User, Book, Review, Category
 
 with app.app_context():
 
@@ -14,10 +14,16 @@ with app.app_context():
     db.session.add_all([u1, u2,u3,u4])
     db.session.commit()
 
+    c1 = Category(name="Fantasy")
+    c2 = Category(name="Fiction")
+
+    db.session.add_all([c1, c2])
+    db.session.commit()
+
     b1 = Book(
         author="Tolkien",
         title="Le Seigneur des Anneaux",
-        category="Fantasy",
+        category_id=c1.id,
         publisher="HarperCollins",
         summary="Un roman épique.",
         isbn="0123456789",
@@ -28,7 +34,7 @@ with app.app_context():
     b2 = Book(
         author="Lorem",
         title="Lorem Ipsum",
-        category="Fiction",
+        category_id=c2.id,
         publisher="Fiction House",
         summary="A lorem ipsum text.",
         isbn="0987654321",

@@ -7,15 +7,13 @@ import logging
 from datetime import datetime
 
 # TODO: 
-# /me get user info from token
-# JWT   admin: delete book, create book
-#       user : delete post, update post, delete user, update user
+# JWT   user : delete post, update post, delete user, update user
 # Authentication : logout, refresh token
 # Book : get a book by is category, author or title
 # THE CODE IS TOO LONG
 # .env for secret key
 # Bcrypt for password hashing
-# Dockerfile 
+ 
 
 
 ### Flask App and Database Configuration ###
@@ -292,7 +290,7 @@ def update_user():
 @jwt_required(optional=True)
 def delete_user():
     """
-    Delete a user by ID
+    Delete a user connected
     ---
     tags:
       - Users

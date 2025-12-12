@@ -23,7 +23,7 @@ class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     author = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(50), nullable=False)
-    category = db.Column(db.String(20), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False)
     publisher = db.Column(db.String(50), nullable=False)
     summary = db.Column(db.String(200))
     isbn = db.Column(db.String(10), unique=True, nullable=False)
@@ -36,7 +36,7 @@ class Book(db.Model):
             'id': self.id,
             'author': self.author,
             'title': self.title,
-            'category': self.category,
+            'category': self.category_id,
             'publisher': self.publisher,
             'summary': self.summary,
             'isbn': self.isbn,
@@ -59,4 +59,16 @@ class Review(db.Model):
             'book_id': self.book_id,
             'score': self.score,
             'message': self.message
+        }
+    
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    books = db.relationship("Book", backref="category_rel", lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'books':[book.to_dict() for book in self.books]
         }
