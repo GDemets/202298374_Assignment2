@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
-from models import db, User, Review, Book, Category
+from models import db, User, Review, Book, Category, Wishlist
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token,jwt_required, get_jwt_identity, get_jwt
 from flask_bcrypt import Bcrypt
 from datetime import datetime
@@ -15,10 +15,11 @@ import os
 # Authentication : logout, refresh token
 # Book : get a book by is category, author or title
 # THE CODE IS TOO LONG
-# .env for secret key
 # Bcrypt for password hashing
+# gestion des erreurs
+# Ajout endpoint
+# Ajout tests
  
-
 
 ### Flask App and Database Configuration ###
 load_dotenv()
@@ -601,6 +602,9 @@ def update_review(review_id):
       404:
         description: Review not found
     """
+    current_user_id = get_jwt_identity()
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
     try:
         review= Review.query.get_or_404(review_id)
         if not request.json:
@@ -1229,6 +1233,188 @@ def delete_category(category_id):
         "message": "Category successfully deleted",
         "data": category.to_dict()
     }), 200
+
+######################################################################################
+#                                      WISHLIST
+######################################################################################
+
+### GET ###
+@app.route('/wishlist/me', methods=['GET'])
+@jwt_required(optional=True)
+def get_wishlist():
+    """
+    Get wishlist for connected user
+    ---
+    tags:
+      - Wishlist
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Wishlist successfully retrieved
+      403:
+        description: You are not connected
+    """
+    current_user_id = get_jwt_identity()
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+  
+    wishlists = Wishlist.query.filter_by(user_id=current_user_id).all()
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Reviews successfully retrieved',
+        'data': [wish.to_dict() for wish in wishlists]
+    }), 200
+
+@app.route('/whislit/<int:book_id>/users', methods=['GET'])
+@jwt_required(optional=True)
+def get_users_by_favorite_book(book_id):
+    """
+    Get all users who have this book in their favorites
+    ---
+    tags:
+      - Wishlist
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+    responses:
+      200:
+        description: List of users who favorited the book
+      403:
+        description: Only admins can update categories
+      404:
+        description: Book not found
+    """
+    claims = get_jwt()
+    if claims.get("role") != "admin":
+        return jsonify({
+            "status": "error",
+            "message": "Only admins can update categories"
+        }), 403
+  
+    book = Book.query.get(book_id)
+    if not book:
+        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
+
+    wishes = Wishlist.query.filter_by(book_id=book_id).all()
+    users = [User.query.get(fav.user_id).to_dict() for fav in wishes]
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Users successfully retrieved',
+        'data': users
+    }), 200
+
+### POST ###
+@app.route('/wishlist/<int:book_id>', methods=['POST'])
+@jwt_required()
+def add_to_wishlist(book_id):
+    """
+    Add a book to the user's wishlist
+    ---
+    tags:
+      - Wishlist
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+        description: ID of the book to add to wishlist
+    responses:
+        201:
+            description: Book successfully added to wishlist
+        400:
+            description: Book already in wishlist
+        404:
+            description: User or book not found
+        500:
+            description: Error while adding book to wishlist
+    """
+    current_user_id = get_jwt_identity()
+
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    book = Book.query.get(book_id)
+    if not book:
+        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
+
+    existing = Wishlist.query.filter_by(user_id=current_user_id, book_id=book_id).first()
+    if existing:
+        return jsonify({'status': 'error', 'message': 'Book already in wishlist'}), 400
+
+    wish = Wishlist(
+        user_id=current_user_id,
+        book_id=book_id,
+    )
+
+    try:
+        db.session.add(wish)
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        return jsonify({'status': 'error', 'message': 'Error while adding book to wishlist'}), 500
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Book successfully added to wishlist',
+        'data': wish.to_dict()
+    }), 201
+
+### DELETE ###
+@app.route('/wishlist/<int:book_id>', methods=['DELETE'])
+@jwt_required()
+def delete_wishlist_item(book_id):
+    """
+    Delete a wishlist item
+    ---
+    tags:
+      - Wishlist
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Wishlist item deleted successfully
+      403:
+        description: Unauthorized action
+      404:
+        description: Wishlist item not found
+      500:
+        description: Error while deleting the wishlist item
+    """
+    current_user_id = get_jwt_identity()
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'Authentication required'}), 401
+
+    wish = Wishlist.query.filter_by(book_id=book_id, user_id=current_user_id).first()
+    if not wish:
+        return jsonify({'status': 'error', 'message': 'Wishlist item not found'}), 404
+
+    try:
+        db.session.delete(wish)
+        db.session.commit()
+    except Exception as e:
+        print("Error deleting wishlist item:", e)
+        return jsonify({'status': 'error', 'message': 'Error while deleting the wishlist item'}), 500
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Wishlist item deleted successfully'
+    }), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

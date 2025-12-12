@@ -1,5 +1,5 @@
 from app import app
-from models import db, User, Book, Review, Category
+from models import db, User, Book, Review, Category, Wishlist
 
 with app.app_context():
 
@@ -62,8 +62,14 @@ with app.app_context():
     p2 = Review(user_id=u1.id, book_id=b2.id, score=4, message="Interesting read.")
     p3 = Review(user_id=u2.id, book_id=b1.id, score=3, message="It was okay.")    
 
-
     db.session.add_all([p1, p2, p3])
+    db.session.commit()
+
+    s1=Wishlist(user_id=u1.id,book_id=b2.id)
+    s2=Wishlist(user_id=u1.id,book_id=b3.id)
+    s3=Wishlist(user_id=u2.id,book_id=b1.id)
+
+    db.session.add_all([s1,s2,s3])
     db.session.commit()
 
     print("Database seeded successfully.")
