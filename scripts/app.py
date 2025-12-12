@@ -32,7 +32,6 @@ swagger = Swagger(app, template={
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
-            #"description": "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
             "description": "Add 'Bearer <your_token>'"
         }
     }
@@ -213,20 +212,17 @@ def create_user():
     }), 201
 
 ### PUT ###
-@app.route('/users/<int:user_id>', methods=['PUT'])
-@jwt_required()
-def update_user(user_id):
+@app.route('/users/me', methods=['PUT'])
+@jwt_required(optional=True)
+def update_user():
     """
     Update a user's information
     ---
     tags:
       - Users
+    security:
+      - BearerAuth: []
     parameters:
-      - name: user_id
-        in: path
-        required: true
-        type: integer
-        description: ID of the user to update
       - in: body
         name: body
         required: true
@@ -250,18 +246,24 @@ def update_user(user_id):
         description: User updated successfully
       400:
         description: Invalid or missing fields
+      403:
+        description: Unauthorized action
       404:
         description: User not found
     """
+    current_user_id = get_jwt_identity()
+    print(f"azerty: {current_user_id}")
+    if current_user_id is None:
+        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+    
     if not request.json or 'mail' not in request.json:
         return {'message': 'Format invalid or missing values', 'status': 'error'}, 400
     
     try:
-        user = User.query.get(user_id)
+        user = User.query.get(current_user_id)
         user.pseudo = request.json.get('pseudo', user.pseudo)
         user.mail = request.json.get('mail', user.mail)
         user.password = request.json.get('password', user.password)
-
         db.session.commit()
     except Exception as e:
         print(e)
@@ -751,6 +753,8 @@ def delete_book(book_id):
     ---
     tags:
       - Books
+    security:
+      - BearerAuth: []
     parameters:
       - name: book_id
         in: path
@@ -790,6 +794,8 @@ def update_book(book_id):
     ---
     tags:
       - Books
+    security:
+      - BearerAuth: []
     parameters:
       - name: book_id
         in: path
