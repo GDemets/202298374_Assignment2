@@ -6,10 +6,14 @@ with app.app_context():
     db.drop_all()
     db.create_all()
 
-    u1 = User(pseudo="Alice", mail="alice@mail.com", password="1234", role="user")
-    u2 = User(pseudo="John", mail="john@mail.com", password="1234", role="user")
-    u3 = User(pseudo="Doe", mail="doe@mail.com", password="1234", role="user")
-    u4 = User(pseudo="Admin", mail="admin@mail.com", password="admin", role="admin")
+    u1 = User(pseudo="Alice", mail="alice@mail.com", role="user")
+    u1.set_password("1234")
+    u2 = User(pseudo="John", mail="john@mail.com", role="user")
+    u2.set_password("1234")
+    u3 = User(pseudo="Doe", mail="doe@mail.com", role="user")
+    u3.set_password("1234")
+    u4 = User(pseudo="Admin", mail="admin@mail.com", role="admin")
+    u4.set_password("admin")
 
     db.session.add_all([u1, u2,u3,u4])
     db.session.commit()

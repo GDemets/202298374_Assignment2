@@ -1,12 +1,15 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+
 
 db = SQLAlchemy()
+bcrypt = Bcrypt()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     pseudo = db.Column(db.String(30), unique=True, nullable=False)
     mail = db.Column(db.String(30), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    password_hash = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     reviews = db.relationship('Review', backref='user', lazy=True)
 
@@ -17,6 +20,12 @@ class User(db.Model):
             'mail': self.mail,
             'role': self.role
         }
+    
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
 
 
 class Book(db.Model):

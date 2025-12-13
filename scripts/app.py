@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, abort, render_template
 from flasgger import Swagger
 from models import db, User, Review, Book, Category, Wishlist
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token,jwt_required, get_jwt_identity, get_jwt
-from flask_bcrypt import Bcrypt
 from datetime import datetime
 from dotenv import load_dotenv
 from datetime import timedelta
@@ -15,7 +14,6 @@ import os
 # Book : get a book by is category, title
 # THE CODE IS TOO LONG
 # Bcrypt for password hashing
-# gestion des erreurs
 # Ajout tests
  
 ### Flask App and Database Configuration ###
@@ -210,12 +208,18 @@ def create_user():
     if 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
         return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
 
+    # user = User(
+    #     pseudo=request.json['pseudo'],
+    #     mail=request.json['mail'],
+    #     password=request.json['password'],
+    #     role="user" 
+    # )
     user = User(
         pseudo=request.json['pseudo'],
         mail=request.json['mail'],
-        password=request.json['password'],
         role="user" #set user role as default
     )
+    user.set_password(request.json['password'])
     try:
         db.session.add(user)
         db.session.commit()
@@ -279,9 +283,13 @@ def update_user():
     
     try:
         user = User.query.get(current_user_id)
+        # user.pseudo = request.json.get('pseudo', user.pseudo)
+        # user.mail = request.json.get('mail', user.mail)
+        # user.password = request.json.get('password', user.password)
         user.pseudo = request.json.get('pseudo', user.pseudo)
         user.mail = request.json.get('mail', user.mail)
-        user.password = request.json.get('password', user.password)
+        if 'password' in request.json:
+            user.set_password(request.json['password'])
         db.session.commit()
     except Exception as e:
         print(e)
@@ -398,7 +406,7 @@ def login():
           properties:
             mail:
               type: string
-              example: "john@mail.com"
+              example: "alice@mail.com"
             password:
               type: string
               example: "1234"
@@ -423,13 +431,17 @@ def login():
         description: Invalid password
     """
     data = request.get_json()
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'mail' not in request.json or 'password' not in request.json :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+
     user = User.query.filter_by(mail=data["mail"]).first()
-
     if user is None:
-        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
+        return error_response(status=404,code='USER_NOT_FOUND',message='User does not exist')
 
-    if user.password != data["password"]:
-        return error_response(status=400,code='VALIDATION_FAILED',message='Field validation failed')
+    if not user.check_password(data["password"]):
+        return error_response(status=401,code='INVALID_CREDENTIALS',message='Invalid mail or password')
 
     access_token = create_access_token(
         identity=str(user.id),
