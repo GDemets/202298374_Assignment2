@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime
 from dotenv import load_dotenv
 from datetime import timedelta
+from error_response import error_response
 
 import logging
 import os
@@ -79,12 +80,13 @@ def get_users():
         users = User.query.all()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'An error occurred while fetching users'}), 500
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
     return jsonify({
         'status': 'success',
         'message': 'Users successfully retrieved',
         'data': [user.to_dict() for user in users]
     }), 200
+    
 
 @app.route('/users/me', methods=['GET'])
 @jwt_required(optional=True)
@@ -129,11 +131,12 @@ def get_me():
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
     
     user = User.query.get(current_user_id)
     if not user:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
+        
     return jsonify({
         'status': 'success',
         'message': 'User successfully retrieved',
@@ -202,21 +205,23 @@ def create_user():
             message:
               type: string
     """
-    if not request.json or 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
-        return jsonify({'status':'error','message': 'Format invalid or missing values'}), 400
-    
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+
     user = User(
         pseudo=request.json['pseudo'],
         mail=request.json['mail'],
         password=request.json['password'],
-        role="user" #user role by default
+        role="user" #set user role as default
     )
     try:
         db.session.add(user)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'User already exists'}), 409
+        return error_response(status=409,code='DUPLICATE_RESSOURCE',message='Data already exists')
     
     return jsonify({
         'status': 'success',
@@ -265,12 +270,12 @@ def update_user():
         description: User not found
     """
     current_user_id = get_jwt_identity()
-    print(f"azerty: {current_user_id}")
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
-    
-    if not request.json or 'mail' not in request.json:
-        return {'message': 'Format invalid or missing values', 'status': 'error'}, 400
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'mail' not in request.json :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
     try:
         user = User.query.get(current_user_id)
@@ -280,7 +285,7 @@ def update_user():
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'User does not exist'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
 
     return jsonify({
         'status': 'success',
@@ -317,17 +322,14 @@ def make_user_admin(user_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can create books"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
     
     user_to_promote = User.query.get(user_id)
     if not user_to_promote:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
 
     if user_to_promote.role == 'admin':
-        return jsonify({'status': 'success', 'message': 'User is already an admin'}), 200
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: already admin')
 
     try:
         user_to_promote.role = 'admin'
@@ -335,7 +337,7 @@ def make_user_admin(user_id):
     except Exception as e:
         db.session.rollback()
         print("Error promoting user:", e)
-        return jsonify({'status': 'error', 'message': 'Error while updating user'}), 500
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
 
     return jsonify({
         'status': 'success',
@@ -361,7 +363,7 @@ def delete_user():
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
     
     try:
         user = User.query.get_or_404(current_user_id)
@@ -369,7 +371,7 @@ def delete_user():
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'User does not exist'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
 
     return jsonify({'status': 'success', 'message': 'User successfully deleted'}), 200
 
@@ -424,10 +426,10 @@ def login():
     user = User.query.filter_by(mail=data["mail"]).first()
 
     if user is None:
-        return jsonify({'status': 'error', 'message': 'User does not exist'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
 
     if user.password != data["password"]:
-        return jsonify({'status': 'error', 'message': 'Invalid password'}), 401
+        return error_response(status=400,code='VALIDATION_FAILED',message='Field validation failed')
 
     access_token = create_access_token(
         identity=str(user.id),
@@ -461,7 +463,7 @@ def refresh():
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
 
     new_access_token = create_access_token(
         identity=current_user_id
@@ -496,10 +498,9 @@ def get_reviews_user():
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
   
     reviews = Review.query.filter_by(user_id=current_user_id).all()
-
 
     return jsonify({
         'status': 'success',
@@ -527,7 +528,7 @@ def get_reviews_book(book_id):
     """
     reviews = Review.query.filter_by(book_id=book_id).all()
     if not reviews:
-        return jsonify({'status': 'error', 'message': 'The corresponding books were not found.'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist')
 
     return jsonify({
         'status': 'success',
@@ -581,19 +582,22 @@ def create_review(book_id):
             description: Error while creating the review
 
     """
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'score' not in request.json or 'message' not in request.json :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+    
     current_user_id = get_jwt_identity()
-
+    if current_user_id is None:
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
     user = User.query.get(current_user_id)
     if not user:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        return error_response(status=404,code='USER_NOT_FOUND',message='User ID does not exist')
 
     book = Book.query.get(book_id)
     if not book:
-        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
-
-    if not request.json or 'score' not in request.json or 'message' not in request.json:
-        return jsonify({'status': 'error', 'message': 'Invalid JSON or Missing score or message'}), 400
-
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Ressource ID does not exist')
+    
     review = Review(
         user_id=current_user_id,
         book_id=book_id,
@@ -606,7 +610,7 @@ def create_review(book_id):
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Error while creating review'}), 500
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
 
     return jsonify({
         'status': 'success',
@@ -652,17 +656,18 @@ def update_review(review_id):
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
+    review= Review.query.get_or_404(review_id)
+    if not request.json:
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Review ID does not exist')   
+    
     try:
-        review= Review.query.get_or_404(review_id)
-        if not request.json:
-            abort(400)        
         review.score = request.json.get('score', review.score)
         review.message = request.json.get('message', review.message)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Review does not exist'}), 404
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
     return jsonify({
         'status': 'success',
         'message': 'Review successfully modified',
@@ -695,7 +700,7 @@ def delete_review(review_id):
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Review does not exist'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Review ID does not exist')  
 
     return jsonify({'status': 'success', 'message': 'Reviewsuccessfully deleted'}), 200
 
@@ -715,7 +720,12 @@ def get_books():
       200:
         description: List of all books
     """
-    books = Book.query.all()
+    try:
+      books = Book.query.all()
+    except Exception as e:
+        print(e)
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
+    
     return jsonify({
         'status': 'success',
         'message': 'Books successfully retrieved',
@@ -743,7 +753,7 @@ def get_book(book_id):
     """
     book = Book.query.get(book_id)
     if not book:
-        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist') 
 
     return jsonify({
         'status': 'success',
@@ -769,12 +779,22 @@ def get_books_author():
       200:
         description: List of books
     """
-    books=Book.query.all()
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'author' not in request.json :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+    
+    try:
+      books = Book.query.all()
+    except Exception as e:
+        print(e)
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
+    
     book_author=[]
     for book in books:
         if book.author==request.args.get("author",type=str):
             book_author.append(book)
-            
+
     return jsonify({
         'status': 'success',
         'message': 'Books successfully retrieved',
@@ -845,14 +865,13 @@ def create_book():
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can create books"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
     
     requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
-    if not request.json or not all(key in request.json for key in requiered_fields):
-        return jsonify({'status': 'error','message': 'Format invalid or missing values'}), 400
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if not all(key in request.json for key in requiered_fields) :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
     book=Book(
         author=request.json['author'],
@@ -870,7 +889,7 @@ def create_book():
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'ISBN already used'}), 409
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: ISBN already used')
     
     return jsonify({
         'status': 'success',
@@ -905,17 +924,14 @@ def delete_book(book_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can delete books"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
     try:
         book = Book.query.get_or_404(book_id)
         db.session.delete(book)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Book does not exist'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist') 
 
     return jsonify({'status': 'success', 'message': 'Book successfully deleted'}), 200
 
@@ -990,16 +1006,17 @@ def update_book(book_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can modify books"
-        }), 403
-    if not request.json:
-        return jsonify({'message': 'Invalid or missing JSON', 'status': 'error'}), 400
+        return error_response(status=403,code='FORBIDDEN',message='No access')
+    
+    requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if not all(key in request.json for key in requiered_fields) :
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
     book = Book.query.get(book_id)
     if book is None:
-        return jsonify({'status': 'error', 'message': 'Book does not exist'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist') 
 
     try:
         book.author = request.json.get('author', book.author)
@@ -1015,7 +1032,7 @@ def update_book(book_id):
 
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'ISBN already used'}), 409
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: ISBN already used')
 
     return jsonify({
         'status': 'success',
@@ -1038,8 +1055,13 @@ def get_categories():
     responses:
       200:
         description: List of all categories
-    """
-    categories = Category.query.all()
+    """    
+    try:
+      categories = Category.query.all()
+    except Exception as e:
+        print(e)
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
+    
     return jsonify({
         'status': 'success',
         'message': 'Categories successfully retrieved',
@@ -1066,7 +1088,7 @@ def get_category(cat_id):
     """
     cat = Category.query.get(cat_id)
     if not cat:
-        return jsonify({'status': 'error', 'message': 'Category not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Category ID does not exist') 
 
     return jsonify({
         'status': 'success',
@@ -1095,13 +1117,9 @@ def get_books_by_category(category_id):
 
     category = Category.query.get(category_id)
     if not category:
-        return jsonify({
-            "status": "error",
-            "message": "Category not found"
-        }), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Category ID does not exist') 
 
     books = [book.to_dict() for book in category.books]
-
     return jsonify({
         "status": "success",
         "message": "Books retrieved",
@@ -1143,16 +1161,12 @@ def create_category():
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can create categories"
-        }), 403
-    
-    if not request.json or "name" not in request.json:
-        return jsonify({
-            'status': 'error',
-            'message': 'Format invalid or missing values'
-        }), 400
+        return error_response(status=403,code='FORBIDDEN',message='No access')
+      
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'name' not in request.json:
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
     cat = Category(name=request.json['name'])
 
@@ -1161,10 +1175,7 @@ def create_category():
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({
-            'status': 'error',
-            'message': 'Category already exists'
-        }), 409
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: Category already used')
     
     return jsonify({
         'status': 'success',
@@ -1213,36 +1224,24 @@ def update_category(category_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can update categories"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
 
-    if not request.json or "name" not in request.json:
-        return jsonify({
-            'status': 'error',
-            'message': 'Missing or invalid fields'
-        }), 400
-
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'name' not in request.json:
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+    
     new_name = request.json["name"]
-
     category = Category.query.get(category_id)
     if not category:
-        return jsonify({
-            'status': 'error',
-            'message': 'Category not found'
-        }), 404
-
-    category.name = new_name
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Category ID does not exist') 
 
     try:
+        category.name = new_name
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({
-            'status': 'error',
-            'message': 'Category name already exists'
-        }), 409
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: Category already used')
 
     return jsonify({
         'status': 'success',
@@ -1278,33 +1277,21 @@ def delete_category(category_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can delete categories"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
 
     category = Category.query.get(category_id)
     if not category:
-        return jsonify({
-            "status": "error",
-            "message": "Category not found"
-        }), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Category ID does not exist')
 
     if len(category.books) > 0:
-        return jsonify({
-            "status": "error",
-            "message": "Category cannot be deleted because books are associated with it"
-        }), 409
+        return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: Category already used')
 
     try:
         db.session.delete(category)
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({
-            "status": "error",
-            "message": "An error occurred while deleting category"
-        }), 500
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
 
     return jsonify({
         "status": "success",
@@ -1335,8 +1322,8 @@ def get_wishlist():
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
-  
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
+
     wishlists = Wishlist.query.filter_by(user_id=current_user_id).all()
 
     return jsonify({
@@ -1370,14 +1357,11 @@ def get_users_by_favorite_book(book_id):
     """
     claims = get_jwt()
     if claims.get("role") != "admin":
-        return jsonify({
-            "status": "error",
-            "message": "Only admins can update categories"
-        }), 403
+        return error_response(status=403,code='FORBIDDEN',message='No access')
   
     book = Book.query.get(book_id)
     if not book:
-        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist')
 
     wishes = Wishlist.query.filter_by(book_id=book_id).all()
     users = [User.query.get(fav.user_id).to_dict() for fav in wishes]
@@ -1416,14 +1400,16 @@ def add_to_wishlist(book_id):
             description: Error while adding book to wishlist
     """
     current_user_id = get_jwt_identity()
-
+    if current_user_id is None:
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
+    
     user = User.query.get(current_user_id)
     if not user:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='User ID does not exist')
 
     book = Book.query.get(book_id)
     if not book:
-        return jsonify({'status': 'error', 'message': 'Book not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Book ID does not exist')
 
     existing = Wishlist.query.filter_by(user_id=current_user_id, book_id=book_id).first()
     if existing:
@@ -1439,7 +1425,7 @@ def add_to_wishlist(book_id):
         db.session.commit()
     except Exception as e:
         print(e)
-        return jsonify({'status': 'error', 'message': 'Error while adding book to wishlist'}), 500
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
 
     return jsonify({
         'status': 'success',
@@ -1475,18 +1461,18 @@ def delete_wishlist_item(book_id):
     """
     current_user_id = get_jwt_identity()
     if current_user_id is None:
-        return jsonify({'status': 'error', 'message': 'Authentication required'}), 401
+        return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
 
     wish = Wishlist.query.filter_by(book_id=book_id, user_id=current_user_id).first()
     if not wish:
-        return jsonify({'status': 'error', 'message': 'Wishlist item not found'}), 404
+        return error_response(status=404,code='RESSOURCE_NOT_FOUND',message='Wishlist ID does not exist')
 
     try:
         db.session.delete(wish)
         db.session.commit()
     except Exception as e:
-        print("Error deleting wishlist item:", e)
-        return jsonify({'status': 'error', 'message': 'Error while deleting the wishlist item'}), 500
+        print(e)
+        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
 
     return jsonify({
         'status': 'success',
