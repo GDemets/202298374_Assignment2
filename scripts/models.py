@@ -45,14 +45,13 @@ class Book(db.Model):
             'id': self.id,
             'author': self.author,
             'title': self.title,
-            'category': self.category_id,
+            'category_id': self.category_id,
             'publisher': self.publisher,
             'summary': self.summary,
             'isbn': self.isbn,
             'price': self.price,
             'publication_date': self.publication_date
         }
-
 
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)

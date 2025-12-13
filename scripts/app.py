@@ -4,18 +4,12 @@ from models import db, User, Review, Book, Category, Wishlist
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token,jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from dotenv import load_dotenv
-from datetime import timedelta
+from datetime import timedelta, datetime
 from error_response import error_response
 
 import logging
 import os
 
-# TODO: 
-# Book : get a book by is category, title
-# THE CODE IS TOO LONG
-# Bcrypt for password hashing
-# Ajout tests
- 
 ### Flask App and Database Configuration ###
 load_dotenv()
 app = Flask(__name__)
@@ -43,15 +37,23 @@ swagger = Swagger(app, template={
 db.init_app(app)
 jwt = JWTManager(app)
 
+# def create_tables():
+#     db.create_all()
+
+# app.before_request(create_tables)
+
 def create_tables():
     db.create_all()
 
-app.before_request(create_tables)
+@app.before_request
+def ensure_tables_exist():
+    if not app.config.get("TESTING", False):
+        create_tables()
 
 ### Middleware to log requests ###
 @app.before_request
 def log_request_info():
-    logging.info(f"{datetime.utcnow().isoformat()} - {request.method} {request.path}")
+    logging.info(f"{datetime.now().isoformat()} - {request.method} {request.path}")
 
 ######################################################################################
 #                                      USERS
@@ -208,12 +210,6 @@ def create_user():
     if 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
         return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
 
-    # user = User(
-    #     pseudo=request.json['pseudo'],
-    #     mail=request.json['mail'],
-    #     password=request.json['password'],
-    #     role="user" 
-    # )
     user = User(
         pseudo=request.json['pseudo'],
         mail=request.json['mail'],
@@ -283,9 +279,6 @@ def update_user():
     
     try:
         user = User.query.get(current_user_id)
-        # user.pseudo = request.json.get('pseudo', user.pseudo)
-        # user.mail = request.json.get('mail', user.mail)
-        # user.password = request.json.get('password', user.password)
         user.pseudo = request.json.get('pseudo', user.pseudo)
         user.mail = request.json.get('mail', user.mail)
         if 'password' in request.json:
@@ -782,7 +775,7 @@ def get_books_author():
       - Books
     parameters:
       - in: query
-        name: author
+        name: author_id
         schema:
           type: string
         required: false
@@ -790,27 +783,37 @@ def get_books_author():
     responses:
       200:
         description: List of books
-    """
-    if not request.json :
-        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
-    if 'author' not in request.json :
-        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
-    
+    """  
+    author = request.args.get("author", type=str)
+
+    if not author:
+        return error_response(
+            status=400,
+            code="INVALID_QUERY_PARAM",
+            message="author query parameter is required"
+        )
+
     try:
-      books = Book.query.all()
+        books = Book.query.filter(Book.author == author).all()
     except Exception as e:
         print(e)
-        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
-    
-    book_author=[]
-    for book in books:
-        if book.author==request.args.get("author",type=str):
-            book_author.append(book)
+        return error_response(
+            status=500,
+            code="INTERNAL_SERVER_ERROR",
+            message="Internal server error"
+        )
+
+    if not books:
+        return error_response(
+            status=404,
+            code="NOT_FOUND",
+            message="No books found for this author"
+        )
 
     return jsonify({
-        'status': 'success',
-        'message': 'Books successfully retrieved',
-        'data': [book.to_dict() for book in book_author]
+        "status": "success",
+        "message": "Books successfully retrieved",
+        "data": [book.to_dict() for book in books]
     }), 200
 
 ### POST ###
@@ -834,7 +837,7 @@ def create_book():
           required:
             - author
             - title
-            - category
+            - category_id
             - publisher
             - isbn
             - price
@@ -846,7 +849,7 @@ def create_book():
             title:
               type: string
               example: "Lorem Ipsum"
-            category:
+            category_id:
               type: string
               example: "Romance"
             publisher:
@@ -879,7 +882,7 @@ def create_book():
     if claims.get("role") != "admin":
         return error_response(status=403,code='FORBIDDEN',message='No access')
     
-    requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
+    requiered_fields = ['author', 'title', 'category_id', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json :
         return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
     if not all(key in request.json for key in requiered_fields) :
@@ -888,7 +891,7 @@ def create_book():
     book=Book(
         author=request.json['author'],
         title=request.json['title'],
-        category=request.json['category'],
+        category_id=request.json['category_id'],
         publisher=request.json['publisher'],
         summary=request.json.get('summary','No summary available'),
         isbn=request.json['isbn'],
@@ -973,7 +976,7 @@ def update_book(book_id):
           required:
             - author
             - title
-            - category
+            - category_id
             - publisher
             - isbn
             - price
@@ -985,7 +988,7 @@ def update_book(book_id):
             title:
               type: string
               example: "Lorem Ipsum"
-            category:
+            category_id:
               type: string
               example: "Romance"
             publisher:
@@ -1020,7 +1023,7 @@ def update_book(book_id):
     if claims.get("role") != "admin":
         return error_response(status=403,code='FORBIDDEN',message='No access')
     
-    requiered_fields = ['author', 'title', 'category', 'publisher', 'isbn', 'price', 'publication_date']
+    requiered_fields = ['author', 'title', 'category_id', 'publisher', 'isbn', 'price', 'publication_date']
     if not request.json :
         return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
     if not all(key in request.json for key in requiered_fields) :
@@ -1033,15 +1036,13 @@ def update_book(book_id):
     try:
         book.author = request.json.get('author', book.author)
         book.title = request.json.get('title', book.title)
-        book.category = request.json.get('category', book.category)
+        book.category_id = request.json.get('category_id', book.category_id)
         book.publisher = request.json.get('publisher', book.publisher)
         book.summary = request.json.get('summary', book.summary)
         book.isbn = request.json.get('isbn', book.isbn)
         book.price = request.json.get('price', book.price)
         book.publication_date = request.json.get('publication_date', book.publication_date)
-
         db.session.commit()
-
     except Exception as e:
         print(e)
         return error_response(status=409,code='STATE_CONFLICT',message='Resource state conflict: ISBN already used')
