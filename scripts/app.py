@@ -11,16 +11,12 @@ import logging
 import os
 
 # TODO: 
-# JWT   user : delete post, update post, delete user, update user
-# Authentication : logout, refresh token
-# Book : get a book by is category, author or title
+# Book : get a book by is category, title
 # THE CODE IS TOO LONG
 # Bcrypt for password hashing
 # gestion des erreurs
-# Ajout endpoint
 # Ajout tests
  
-
 ### Flask App and Database Configuration ###
 load_dotenv()
 app = Flask(__name__)
@@ -132,7 +128,6 @@ def get_me():
               type: string
     """
     current_user_id = get_jwt_identity()
-    print(f"azerty: {current_user_id}")
     if current_user_id is None:
         return jsonify({'status': 'error', 'message': 'You are not connected'}), 403
     
@@ -294,7 +289,7 @@ def update_user():
     }), 200
 
 ### PATCH ###
-@app.route('/user/<int:user_id>/make_admin', methods=['PATCH'])
+@app.route('/users/<int:user_id>/make_admin', methods=['PATCH'])
 @jwt_required()
 def make_user_admin(user_id):
     """
@@ -754,6 +749,36 @@ def get_book(book_id):
         'status': 'success',
         'message': 'Book successfully retrieved',
         'data': book.to_dict()
+    }), 200
+
+@app.route('/books/author', methods=['GET'])
+def get_books_author():
+    """
+    Get all books filter by author.
+    ---
+    tags:
+      - Books
+    parameters:
+      - in: query
+        name: author
+        schema:
+          type: string
+        required: false
+        description: Filter books by author's name
+    responses:
+      200:
+        description: List of books
+    """
+    books=Book.query.all()
+    book_author=[]
+    for book in books:
+        if book.author==request.args.get("author",type=str):
+            book_author.append(book)
+            
+    return jsonify({
+        'status': 'success',
+        'message': 'Books successfully retrieved',
+        'data': [book.to_dict() for book in book_author]
     }), 200
 
 ### POST ###
@@ -1320,7 +1345,7 @@ def get_wishlist():
         'data': [wish.to_dict() for wish in wishlists]
     }), 200
 
-@app.route('/whislit/<int:book_id>/users', methods=['GET'])
+@app.route('/wishlit/<int:book_id>/users', methods=['GET'])
 @jwt_required(optional=True)
 def get_users_by_favorite_book(book_id):
     """
