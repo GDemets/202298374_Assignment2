@@ -65,9 +65,6 @@ def health_check():
 
 @app.route('/')
 def index():
-    """
-    Redirect to API documentation
-    """
     from flask import redirect
     return redirect('/apidocs/')
 
