@@ -63,6 +63,14 @@ def health_check():
     }
     return jsonify(response_data), 200
 
+@app.route('/')
+def index():
+    """
+    Redirect to API documentation
+    """
+    from flask import redirect
+    return redirect('/apidocs/')
+
 ######################################################################################
 #                                      USERS
 ######################################################################################
