@@ -72,8 +72,7 @@ pytest -v
 ```
 repo-root
 ├─ README.md
-├─ .gitignore
-├─ .env.example   
+├─ .gitignore 
 ├─ postman/
 │  └─ bookstore.postman_collection.json
 ├─ src/                  
