@@ -718,25 +718,65 @@ def delete_review(review_id):
 @app.route('/books', methods=['GET'])
 def get_books():
     """
-    Get all books
+    Get all books with pagination
     ---
     tags:
       - Books
+    parameters:
+      - in: query
+        name: page
+        type: integer
+        required: false
+        default: 1
+      - in: query
+        name: limit
+        type: integer
+        required: false
+        default: 10
     responses:
       200:
-        description: List of all books
+        description: Paginated list of books
     """
     try:
-      books = Book.query.all()
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 10, type=int)
+
+        if page < 1 or limit < 1:
+            return error_response(
+                status=400,
+                code='INVALID_QUERY_PARAM',
+                message='Page and limit must be positive integers'
+            )
+
+        pagination = Book.query.paginate(
+            page=page,
+            per_page=limit,
+            error_out=False
+        )
+
+        books = pagination.items
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Books successfully retrieved',
+            'data': [book.to_dict() for book in books],
+            'pagination': {
+                'page': pagination.page,
+                'limit': limit,
+                'total_pages': pagination.pages,
+                'total_items': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+
     except Exception as e:
         print(e)
-        return error_response(status=500,code='INTERNAl_SERVER_ERROR',message='Internal server error')
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Books successfully retrieved',
-        'data': [book.to_dict() for book in books]
-    }), 200
+        return error_response(
+            status=500,
+            code='INTERNAL_SERVER_ERROR',
+            message='Internal server error'
+        )
 
 @app.route('/books/<int:book_id>', methods=['GET'])
 def get_book(book_id):
@@ -818,6 +858,111 @@ def get_books_by_author():
         "message": "Books successfully retrieved",
         "data": [book.to_dict() for book in books]
     }), 200
+
+@app.route('/books/search', methods=['GET'])
+def search_books():
+    """
+    Search books by multiple criteria with pagination
+    ---
+    tags:
+      - Books
+    parameters:
+      - in: query
+        name: title
+        type: string
+        required: false
+        description: Filter by book title
+      - in: query
+        name: author
+        type: string
+        required: false
+        description: Filter by author name
+      - in: query
+        name: category
+        type: string
+        required: false
+        description: Filter by category name
+      - in: query
+        name: min_price
+        type: number
+        required: false
+        description: Minimum price
+      - in: query
+        name: max_price
+        type: number
+        required: false
+        description: Maximum price
+      - in: query
+        name: page
+        type: integer
+        required: false
+        default: 1
+      - in: query
+        name: limit
+        type: integer
+        required: false
+        default: 10
+    responses:
+      200:
+        description: Paginated list of books matching search criteria
+    """
+    try:
+        # Récupération des paramètres
+        title = request.args.get('title', type=str)
+        author = request.args.get('author', type=str)
+        category_name = request.args.get('category', type=str)
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 10, type=int)
+
+        if page < 1 or limit < 1:
+            return error_response(
+                status=400,
+                code='INVALID_QUERY_PARAM',
+                message='Page and limit must be positive integers'
+            )
+
+        # Construction de la requête
+        query = Book.query
+
+        if title:
+            query = query.filter(Book.title.ilike(f"%{title}%"))
+        if author:
+            query = query.filter(Book.author.ilike(f"%{author}%"))
+        if category_name:
+            query = query.join(Category).filter(Category.name.ilike(f"%{category_name}%"))
+        if min_price is not None:
+            query = query.filter(Book.price >= min_price)
+        if max_price is not None:
+            query = query.filter(Book.price <= max_price)
+
+        # Pagination
+        pagination = query.paginate(page=page, per_page=limit, error_out=False)
+        books = pagination.items
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Books successfully retrieved',
+            'data': [book.to_dict() for book in books],
+            'pagination': {
+                'page': pagination.page,
+                'limit': limit,
+                'total_pages': pagination.pages,
+                'total_items': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+
+    except Exception as e:
+        print(e)
+        return error_response(
+            status=500,
+            code='INTERNAL_SERVER_ERROR',
+            message='Internal server error'
+        )
+
 
 ### POST ###
 @app.route('/books', methods=['POST'])
