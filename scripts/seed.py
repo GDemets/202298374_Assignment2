@@ -1,79 +1,81 @@
 from app import app
 from models import db, User, Book, Review, Category, Wishlist
+from faker import Faker
+import random
+
+fake = Faker("en_US")
 
 with app.app_context():
 
     db.drop_all()
     db.create_all()
 
-    u1 = User(pseudo="Alice", mail="alice@mail.com", role="user")
-    u1.set_password("1234")
-    u2 = User(pseudo="John", mail="john@mail.com", role="user")
-    u2.set_password("1234")
-    u3 = User(pseudo="Doe", mail="doe@mail.com", role="user")
-    u3.set_password("1234")
-    u4 = User(pseudo="Admin", mail="admin@mail.com", role="admin")
-    u4.set_password("admin")
+    users = []
 
-    db.session.add_all([u1, u2,u3,u4])
-    db.session.commit()
+    for _ in range(30):
+        user = User(
+            pseudo=fake.user_name(),
+            mail=fake.unique.email(),
+            role="user"
+        )
+        user.set_password("1234")
+        users.append(user)
 
-    c1 = Category(name="Fantasy")
-    c2 = Category(name="Fiction")
-
-    db.session.add_all([c1, c2])
-    db.session.commit()
-
-    b1 = Book(
-        author="Tolkien",
-        title="Le Seigneur des Anneaux",
-        category_id=c1.id,
-        publisher="HarperCollins",
-        summary="Un roman épique.",
-        isbn="0123456789",
-        price=25000,
-        publication_date="1954-07-29",
+    admin = User(
+        pseudo="admin",
+        mail="admin@mail.com",
+        role="admin"
     )
-
-    b2 = Book(
-        author="Lorem",
-        title="Lorem Ipsum",
-        category_id=c2.id,
-        publisher="Fiction House",
-        summary="A lorem ipsum text.",
-        isbn="0987654321",
-        price=10500,
-        publication_date="1954-07-29",
-    )
-
-    b3 = Book(
-        author="Test Author",
-        title="Test Book",
-        category_id=c2.id,
-        publisher="Fiction House",
-        summary="A lorem ipsum text.",
-        isbn="18293748392",
-        price=10500,
-        publication_date="1954-07-29",
-    )
-
-    db.session.add(b1)
-    db.session.add(b2)
-    db.session.add(b3)
+    admin.set_password("admin")
+    db.session.add_all(users + [admin])
     db.session.commit()
 
-    p1 = Review(user_id=u1.id, book_id=b1.id, score=5, message="Really great book !")
-    p2 = Review(user_id=u1.id, book_id=b2.id, score=4, message="Interesting read.")
-    p3 = Review(user_id=u2.id, book_id=b1.id, score=3, message="It was okay.")    
-
-    db.session.add_all([p1, p2, p3])
+    category_names = [
+        "Fantasy", "Science-Fiction", "Romance", "Thriller",
+        "Horror", "Biography", "History", "Poetry",
+        "Adventure", "Fiction"
+    ]
+    categories = [Category(name=name) for name in category_names]
+    db.session.add_all(categories)
     db.session.commit()
 
-    s1=Wishlist(user_id=u1.id,book_id=b2.id)
-    s2=Wishlist(user_id=u1.id,book_id=b3.id)
-    s3=Wishlist(user_id=u2.id,book_id=b1.id)
-
-    db.session.add_all([s1,s2,s3])
+    books = []
+    for _ in range(120):
+        book = Book(
+            author=fake.name(),
+            title=fake.sentence(nb_words=4),
+            category_id=random.choice(categories).id,
+            publisher=fake.company(),
+            summary=fake.text(max_nb_chars=200),
+            isbn=fake.unique.isbn13(),
+            price=random.randint(5000, 30000),
+            publication_date=fake.date_between(start_date="-50y", end_date="today")
+        )
+        books.append(book)
+    db.session.add_all(books)
     db.session.commit()
 
-    print("Database seeded successfully.")
+    reviews = []
+    for _ in range(60):
+        review = Review(
+            user_id=random.choice(users).id,
+            book_id=random.choice(books).id,
+            score=random.randint(1, 5),
+            message=fake.sentence()
+        )
+        reviews.append(review)
+    db.session.add_all(reviews)
+    db.session.commit()
+
+    wishlists = []
+    for _ in range(40):
+        wishlist = Wishlist(
+            user_id=random.choice(users).id,
+            book_id=random.choice(books).id
+        )
+        wishlists.append(wishlist)
+    db.session.add_all(wishlists)
+    db.session.commit()
+
+
+    print("Database seeded successfully!")

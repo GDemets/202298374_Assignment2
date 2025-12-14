@@ -768,32 +768,36 @@ def get_book(book_id):
     }), 200
 
 @app.route('/books/author', methods=['GET'])
-def get_books_author():
+def get_books_by_author():
     """
-    Get all books filter by author.
+    Get all books filtered by author name.
     ---
     tags:
       - Books
     parameters:
       - in: query
-        name: author_id
-        schema:
-          type: string
-        required: false
-        description: Filter books by author's name
+        name: author
+        required: true
+        type: string
+        example: Anthony Nelson
     responses:
       200:
         description: List of books
-    """  
-    if not request.json :
-        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
-    if 'author' not in request.json: 
-        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
-    
-    author=request.json['author']
+      400:
+        description: Missing author query parameter
+    """
+
+    author = request.args.get('author')
+
+    if not author:
+        return error_response(
+            status=400,
+            code='MISSING_QUERY_PARAM',
+            message='Author query parameter is required'
+        )
 
     try:
-        books = Book.query.filter(Book.author == author).all()
+        books = Book.query.filter(Book.author.ilike(f"%{author}%")).all()
     except Exception as e:
         print(e)
         return error_response(
