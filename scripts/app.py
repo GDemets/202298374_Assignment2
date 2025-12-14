@@ -345,6 +345,7 @@ def make_user_admin(user_id):
         'message': f'User {user_to_promote.pseudo} has been promoted to admin',
         'user': user_to_promote.to_dict()
     }), 200
+
 ### DELETE ###
 @app.route('/users/me', methods=['DELETE'])
 @jwt_required(optional=True)
@@ -367,7 +368,7 @@ def delete_user():
         return error_response(status=401,code='UNAUTHORIZED',message='No authentication token or invalid token')
     
     try:
-        user = User.query.get_or_404(current_user_id)
+        user = User.query.get(current_user_id)
         db.session.delete(user)
         db.session.commit()
     except Exception as e:
@@ -784,14 +785,12 @@ def get_books_author():
       200:
         description: List of books
     """  
-    author = request.args.get("author", type=str)
-
-    if not author:
-        return error_response(
-            status=400,
-            code="INVALID_QUERY_PARAM",
-            message="author query parameter is required"
-        )
+    if not request.json :
+        return error_response(status=400,code='BAD_REQUEST',message='The request is not formatted correctly')
+    if 'author' not in request.json: 
+        return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
+    
+    author=request.json['author']
 
     try:
         books = Book.query.filter(Book.author == author).all()
