@@ -7,6 +7,10 @@ from dotenv import load_dotenv
 from datetime import timedelta, datetime
 from error_response import error_response
 
+from user_dto import UserCreateDTO, UserUpdateDTO
+from book_dto import BookCreateDTO, BookUpdateDTO
+from marshmallow import ValidationError
+
 import logging
 import os
 
@@ -36,11 +40,6 @@ swagger = Swagger(app, template={
 
 db.init_app(app)
 jwt = JWTManager(app)
-
-# def create_tables():
-#     db.create_all()
-
-# app.before_request(create_tables)
 
 def create_tables():
     db.create_all()
@@ -87,7 +86,6 @@ def get_users():
         'data': [user.to_dict() for user in users]
     }), 200
     
-
 @app.route('/users/me', methods=['GET'])
 @jwt_required(optional=True)
 def get_me():
@@ -210,12 +208,18 @@ def create_user():
     if 'pseudo' not in request.json or 'mail' not in request.json or 'password' not in request.json:
         return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
 
+    schema = UserCreateDTO()
+    try:
+        data = schema.load(request.json)
+    except ValidationError as err:
+        return error_response(status=400,code='VALIDATION_FAILED',message='Field validation failed')
+    
     user = User(
-        pseudo=request.json['pseudo'],
-        mail=request.json['mail'],
+        pseudo=data['pseudo'],
+        mail=data['mail'],
         role="user" #set user role as default
     )
-    user.set_password(request.json['password'])
+    user.set_password(data['password'])
     try:
         db.session.add(user)
         db.session.commit()
@@ -277,12 +281,18 @@ def update_user():
     if 'mail' not in request.json :
         return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
+    schema = UserUpdateDTO()
+    try:
+        data = schema.load(request.json)
+    except ValidationError as err:
+        return error_response(status=400,code='VALIDATION_FAILED',message='Field validation failed')
+    
     try:
         user = User.query.get(current_user_id)
-        user.pseudo = request.json.get('pseudo', user.pseudo)
-        user.mail = request.json.get('mail', user.mail)
+        user.pseudo = data['pseudo']
+        user.mail = data['mail']
         if 'password' in request.json:
-            user.set_password(request.json['password'])
+            user.set_password(data['password'])
         db.session.commit()
     except Exception as e:
         print(e)
@@ -1036,15 +1046,21 @@ def create_book():
     if not all(key in request.json for key in requiered_fields) :
         return error_response(status=400,code='INVALID_QUERY_PARAM',message='Invalid query parameter value')
     
+    schema = BookCreateDTO()
+    try:
+        data = schema.load(request.json)
+    except ValidationError as err:
+        return error_response(status=400,code='VALIDATION_FAILED',message='Field validation failed')
+    
     book=Book(
-        author=request.json['author'],
-        title=request.json['title'],
-        category_id=request.json['category_id'],
-        publisher=request.json['publisher'],
-        summary=request.json.get('summary','No summary available'),
-        isbn=request.json['isbn'],
-        price=request.json['price'],
-        publication_date=request.json['publication_date']
+        author=data['author'],
+        title=data['title'],
+        category_id=data['category_id'],
+        publisher=data['publisher'],
+        summary=data('summary','No summary available'),
+        isbn=data['isbn'],
+        price=data['price'],
+        publication_date=data['publication_date']
     )
 
     try:

@@ -11,7 +11,13 @@ with app.app_context():
     db.create_all()
 
     users = []
-
+    u1=User(
+            pseudo="Alice",
+            mail="alice@mail.com",
+            role="user"
+        )
+    u1.set_password("1234")
+    users.append(u1)
     for _ in range(30):
         user = User(
             pseudo=fake.user_name(),
