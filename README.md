@@ -73,11 +73,7 @@ pytest -v
 repo-root
 ├─ README.md
 ├─ .gitignore
-├─ .env.example
-├─ docs/
-│  ├─ api-design.md        
-│  ├─ db-schema.*          
-│  └─ architecture.md     
+├─ .env.example   
 ├─ postman/
 │  └─ bookstore.postman_collection.json
 ├─ src/                  
