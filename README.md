@@ -3,6 +3,44 @@
 ## Description
 This project is a **RESTful API developed with Flask** for managing a **bookstore**.
 
+Key Components
+
+Flask Application
+
+Entry point: app.py
+
+REST endpoints defined using Flask routes
+
+Swagger documentation via Flasgger
+
+Authentication & Security
+
+JWT managed by flask-jwt-extended
+
+Access token expiration: 15 minutes
+
+Role-based access using JWT claims
+
+Database Layer
+
+ORM: SQLAlchemy
+
+Automatic table creation on app startup (non-testing mode)
+
+Entities: User, Book, Category, Review, Wishlist
+
+Configuration Management
+
+Environment variables loaded via python-dotenv
+
+Sensitive values stored in .env
+
+Error Handling
+
+Custom error responses via error_response
+
+Consistent JSON error format across the API
+
 ## Data Models Overview
 
 * **User**: pseudo, email, password (hashed), role
