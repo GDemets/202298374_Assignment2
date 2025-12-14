@@ -27,7 +27,7 @@ http://localhost:5000/apidocs
 
 Swagger UI is available with Jcloud at:
 ```
-http://113.198.66.75:19216/apidocs
+http://113.198.66.75:10216/apidocs
 ```
 
 ---
