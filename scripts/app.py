@@ -1677,6 +1677,6 @@ def delete_wishlist_item(book_id):
 if __name__ == '__main__':
     app.run(
         host="0.0.0.0",
-        port=19216,
+        port=8080,
         debug=True
     )
