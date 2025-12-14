@@ -54,6 +54,15 @@ def ensure_tables_exist():
 def log_request_info():
     logging.info(f"{datetime.now().isoformat()} - {request.method} {request.path}")
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    response_data = {
+      "status": "UP",
+      "service": "Bookstore-api",
+      "timestamp": datetime.now().isoformat(),
+    }
+    return jsonify(response_data), 200
+
 ######################################################################################
 #                                      USERS
 ######################################################################################
