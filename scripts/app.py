@@ -8,7 +8,7 @@ from datetime import timedelta, datetime
 from error_response import error_response
 
 from user_dto import UserCreateDTO, UserUpdateDTO
-from book_dto import BookCreateDTO, BookUpdateDTO
+from book_dto import BookCreateDTO
 from marshmallow import ValidationError
 
 import logging
@@ -1057,7 +1057,7 @@ def create_book():
         title=data['title'],
         category_id=data['category_id'],
         publisher=data['publisher'],
-        summary=data('summary','No summary available'),
+        summary=data['summary'],
         isbn=data['isbn'],
         price=data['price'],
         publication_date=data['publication_date']

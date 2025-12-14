@@ -17,10 +17,11 @@ class BookCreateDTO(Schema):
         required=True,
         validate=validate.Length(max=50)
     )
+
     summary = fields.Str(
         required=False,
         validate=validate.Length(max=200),
-        missing="No summary available"
+        load_default="No summary available" 
     )
     isbn = fields.Str(
         required=True,
@@ -31,4 +32,3 @@ class BookCreateDTO(Schema):
         validate=validate.Range(min=0)
     )
     publication_date = fields.Date(required=True, format="%Y-%m-%d")
-
